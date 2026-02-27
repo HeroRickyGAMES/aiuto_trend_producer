@@ -1,0 +1,32 @@
+# IA Video Creator — requirements.txt
+# Instale com: pip install -r requirements.txt
+
+# --- Trends ---
+pytrends>=4.9.2
+# praw removido — Reddit bloqueia API pública desde 2023; substituído por HN + RSS NASA
+
+# --- IA / Roteiro (Ollama roda separado, só precisamos de requests) ---
+requests>=2.31.0
+
+# --- TTS (herdado do ia_dubla_animes) ---
+TTS>=0.22.0
+torch>=2.0.0       # CPU only — NÃO instale torch com CUDA se for CPU only
+torchaudio>=2.0.0  # >= 2.5 usa torchcodec por padrão; patch aplicado em tts_narrator.py
+transformers>=4.57.0,<5.0.0  # <4.57 tem MRO error (GPT2InferenceModel); >=4.57 OK + patch DynamicCache em tts_narrator.py
+
+# --- Áudio ---
+pydub>=0.25.1
+soundfile>=0.12.1
+numpy>=1.24.0
+
+# --- Vídeo ---
+moviepy>=1.0.3
+imageio>=2.33.0
+imageio-ffmpeg>=0.4.9
+
+# --- Imagem / Thumbnail ---
+Pillow>=10.0.0
+
+# --- Utilitários ---
+PyYAML>=6.0
+python-dotenv>=1.0.0

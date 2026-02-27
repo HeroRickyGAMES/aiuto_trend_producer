@@ -1,0 +1,114 @@
+# ================================================
+# IA VIDEO CREATOR — .gitignore
+# ================================================
+
+# -----------------------------------------------
+# SEGURANÇA — nunca commitar
+# -----------------------------------------------
+config.yaml          # contém chaves de API (Pexels)
+.env
+*.key
+*.secret
+
+# -----------------------------------------------
+# SAÍDA DO PIPELINE — gerada automaticamente
+# -----------------------------------------------
+export/
+temp/
+cache/
+
+# -----------------------------------------------
+# CACHE DE MÍDIA — arquivos baixados do Pexels
+# -----------------------------------------------
+assets/media_cache/
+assets/temp/
+assets/media/
+
+# -----------------------------------------------
+# VOZ PESSOAL — áudio de referência para clonagem
+# (privado, pode conter sua voz)
+# -----------------------------------------------
+assets/voices/*.wav
+assets/voices/*.mp3
+assets/voices/*.flac
+assets/voices/*.ogg
+assets/minha_voz.wav
+
+# -----------------------------------------------
+# MODELOS TTS — muito grandes (>1 GB)
+# (baixados automaticamente na primeira execução)
+# -----------------------------------------------
+*.pth
+*.pt
+*.onnx
+*.bin
+*.ckpt
+*.safetensors
+
+# -----------------------------------------------
+# MOVIEPY — arquivos temporários de render
+# -----------------------------------------------
+*TEMP_MPY_wvf_snd.mp4
+*TEMP_MPY_*.mp4
+
+# -----------------------------------------------
+# PIPELINE — pastas temporárias do ia_video_
+# (criadas pelo tempfile.mkdtemp no main.py)
+# -----------------------------------------------
+ia_video_*/
+/tmp/ia_video_*/
+
+# Arquivos de vídeo/áudio soltos na raiz do projeto
+/*.mp4
+/*.wav
+/*.mp3
+
+# -----------------------------------------------
+# PYTHON
+# -----------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+site-packages/
+pip-wheel-metadata/
+*.egg
+
+# -----------------------------------------------
+# LOGS E DEBUG
+# -----------------------------------------------
+*.log
+logs/
+*.stackdump
+
+# -----------------------------------------------
+# EDITORES E IDEs
+# -----------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------
+# SISTEMA OPERACIONAL
+# -----------------------------------------------
+.Trash-*
+.nfs*
+ehthumbs.db
+
+# -----------------------------------------------
+# ARQUIVOS CORROMPIDOS / BRACE EXPANSION FALHA
+# (artefatos de comandos mal digitados no bash)
+# -----------------------------------------------
+{modules*

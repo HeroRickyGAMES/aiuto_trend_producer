@@ -1,0 +1,125 @@
+# =============================================
+# IA VIDEO CREATOR — config.yaml.exemplo
+# Copie para config.yaml e preencha suas chaves
+# =============================================
+
+# --- IA / LLM ---
+llm:
+  provider: ollama
+  model: gemma2            # modelos disponíveis: gemma2, llama3.2, mistral, phi3
+  base_url: http://localhost:11434
+  temperature: 0.7
+  max_tokens: 2000
+
+# --- TTS ---
+tts:
+  model: tts_models/multilingual/multi-dataset/xtts_v2
+  language: pt             # código para XTTS v2 (não use pt-BR aqui)
+  speed: 1.1               # 1.0 = normal | 1.1–1.3 = mais rápido e natural
+  speaker: ""              # deixe vazio para auto-seleção
+  output_format: wav
+  # Clonagem de voz: grave 5–15s da sua voz e aponte aqui
+  # Formatos aceitos: wav, mp3, flac
+  voice_sample: assets/voices/minha_voz.wav
+
+# --- Banco de Mídia ---
+media:
+  pexels_api_key: "SUA_CHAVE_PEXELS_AQUI"   # https://www.pexels.com/api/ (gratuito)
+  max_images: 8
+  max_videos: 3
+  image_duration: 4
+  preferred_orientation: landscape
+  video_quality: hd
+
+# --- APIs externas ---
+apis: {}   # sem APIs adicionais por enquanto
+
+# --- Trends ---
+trends:
+  max_trends: 15
+  google_trends:
+    enabled: true
+    geo: BR
+    timeframe: now 7-d
+    keywords_seed:
+      - inteligência artificial
+      - tecnologia
+      - ciência
+      - astronomia
+      - espaço
+      - física
+      - biologia
+      - medicina
+      - computação
+  hackernews:
+    queries:
+      - artificial intelligence
+      - space astronomy
+      - science discovery
+      - quantum computing
+      - biology medicine
+      - robotics
+      - climate technology
+    min_points: 50
+  astronomia_rss:
+    feeds:
+      - url: "https://www.nasa.gov/rss/dyn/breaking_news.rss"
+        nome: "NASA"
+      - url: "https://spaceflightnow.com/feed/"
+        nome: "SpaceFlightNow"
+
+# --- Vídeo ---
+video:
+  resolution: [1920, 1080]
+  fps: 30
+  format: mp4
+  codec: libx264
+  audio_codec: aac
+  bitrate: 4000k
+  background_music_volume: 0.08   # 0 = sem música de fundo
+  transition_duration: 0.5
+  intro_duration: 2
+  outro_duration: 3
+
+# --- Thumbnail ---
+thumbnail:
+  width: 1280
+  height: 720
+  font_size_title: 72
+  font_size_sub: 36
+  text_color: "#FFFFFF"
+  shadow_color: "#000000"
+  overlay_opacity: 0.5
+
+# --- Roteiro ---
+script:
+  language: pt-BR
+  style: "Educativo, dinâmico e envolvente. Tom de curiosidade científica. Direto ao ponto."
+  duration_target: 300    # duração alvo em segundos
+  sections:
+    - gancho
+    - contexto
+    - desenvolvimento
+    - implicacoes
+    - conclusao
+
+# --- Exportação ---
+export:
+  output_dir: ./export
+  video_filename: video_final.mp4
+  thumbnail_filename: thumbnail.jpg
+  metadata_filename: metadata.json
+  keep_temp_files: false
+
+# --- Canal ---
+channel:
+  name: "Seu Canal Aqui"
+  niche: "Ciência & Tecnologia"
+  cta_subscribe: "Se inscreva no canal para mais conteúdos de ciência e tecnologia!"
+  hashtags_base:
+    - "#ciencia"
+    - "#tecnologia"
+    - "#inteligenciaartificial"
+    - "#astronomia"
+    - "#fisica"
+    - "#inovacao"

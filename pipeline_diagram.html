@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>IA Video Creator — Pipeline</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #050810;
+    --surface: #0d1117;
+    --border: #1a2030;
+    --accent: #00D4FF;
+    --accent2: #7B5EA7;
+    --accent3: #FF6B35;
+    --text: #e0e8f0;
+    --muted: #4a5568;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { position: relative; z-index: 1; max-width: 900px; width: 100%; }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 50px;
+  }
+  .header .badge {
+    display: inline-block;
+    background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(123,94,167,0.15));
+    border: 1px solid rgba(0,212,255,0.3);
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: clamp(28px, 5vw, 48px);
+    font-weight: 800;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.1;
+  }
+  .header p {
+    margin-top: 12px;
+    color: var(--muted);
+    font-size: 14px;
+    font-family: 'Space Mono', monospace;
+  }
+
+  /* Pipeline */
+  .pipeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+  }
+
+  /* Connector line */
+  .pipeline::before {
+    content: '';
+    position: absolute;
+    left: 35px;
+    top: 40px;
+    bottom: 40px;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--accent3), var(--accent));
+    opacity: 0.4;
+  }
+
+  .step {
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+    padding: 24px 0;
+    animation: slideIn 0.5s ease both;
+  }
+
+  .step:nth-child(1) { animation-delay: 0.1s; }
+  .step:nth-child(2) { animation-delay: 0.2s; }
+  .step:nth-child(3) { animation-delay: 0.3s; }
+  .step:nth-child(4) { animation-delay: 0.4s; }
+  .step:nth-child(5) { animation-delay: 0.5s; }
+  .step:nth-child(6) { animation-delay: 0.6s; }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .step-icon {
+    width: 70px;
+    height: 70px;
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+  }
+
+  .step-icon.blue   { background: linear-gradient(135deg, rgba(0,212,255,0.2), rgba(0,212,255,0.05)); border: 1px solid rgba(0,212,255,0.4); box-shadow: 0 0 20px rgba(0,212,255,0.1); }
+  .step-icon.purple { background: linear-gradient(135deg, rgba(123,94,167,0.2), rgba(123,94,167,0.05)); border: 1px solid rgba(123,94,167,0.4); box-shadow: 0 0 20px rgba(123,94,167,0.1); }
+  .step-icon.orange { background: linear-gradient(135deg, rgba(255,107,53,0.2), rgba(255,107,53,0.05)); border: 1px solid rgba(255,107,53,0.4); box-shadow: 0 0 20px rgba(255,107,53,0.1); }
+  .step-icon.green  { background: linear-gradient(135deg, rgba(72,199,116,0.2), rgba(72,199,116,0.05)); border: 1px solid rgba(72,199,116,0.4); box-shadow: 0 0 20px rgba(72,199,116,0.1); }
+  .step-icon.pink   { background: linear-gradient(135deg, rgba(255,100,150,0.2), rgba(255,100,150,0.05)); border: 1px solid rgba(255,100,150,0.4); box-shadow: 0 0 20px rgba(255,100,150,0.1); }
+  .step-icon.gold   { background: linear-gradient(135deg, rgba(255,200,0,0.2), rgba(255,200,0,0.05)); border: 1px solid rgba(255,200,0,0.4); box-shadow: 0 0 20px rgba(255,200,0,0.1); }
+
+  .step-content { flex: 1; }
+
+  .step-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+
+  .step-title {
+    font-size: 20px;
+    font-weight: 800;
+    color: #fff;
+    margin-bottom: 6px;
+  }
+
+  .step-desc {
+    font-size: 13px;
+    color: #6b7fa8;
+    line-height: 1.6;
+    margin-bottom: 12px;
+    max-width: 560px;
+  }
+
+  .step-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+  }
+
+  .chip.blue   { background: rgba(0,212,255,0.1); color: #00D4FF; border: 1px solid rgba(0,212,255,0.2); }
+  .chip.purple { background: rgba(123,94,167,0.1); color: #9f7aea; border: 1px solid rgba(123,94,167,0.2); }
+  .chip.orange { background: rgba(255,107,53,0.1); color: #ff8c5f; border: 1px solid rgba(255,107,53,0.2); }
+  .chip.green  { background: rgba(72,199,116,0.1); color: #68d391; border: 1px solid rgba(72,199,116,0.2); }
+  .chip.pink   { background: rgba(255,100,150,0.1); color: #fc8fb7; border: 1px solid rgba(255,100,150,0.2); }
+  .chip.gold   { background: rgba(255,200,0,0.1); color: #ffd700; border: 1px solid rgba(255,200,0,0.2); }
+  .chip.muted  { background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid rgba(255,255,255,0.08); }
+
+  /* Export box */
+  .export-box {
+    margin-top: 40px;
+    padding: 28px 32px;
+    background: linear-gradient(135deg, rgba(0,212,255,0.05), rgba(123,94,167,0.05));
+    border: 1px solid rgba(0,212,255,0.2);
+    border-radius: 16px;
+    animation: slideIn 0.5s ease 0.7s both;
+  }
+  .export-box h3 {
+    font-size: 13px;
+    letter-spacing: 3px;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    margin-bottom: 20px;
+  }
+  .files {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 14px;
+  }
+  .file-item {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .file-ext {
+    font-family: 'Space Mono', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .file-name {
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .ext-mp4  { color: #ff6b35; }
+  .ext-jpg  { color: #00d4ff; }
+  .ext-json { color: #ffd700; }
+  .ext-txt  { color: #68d391; }
+
+  /* Tech stack */
+  .tech-stack {
+    margin-top: 24px;
+    padding: 20px 24px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+  .tech-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 2px;
+    margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <div class="header">
+    <div class="badge">PIPELINE OVERVIEW</div>
+    <h1>IA Video Creator</h1>
+    <p>Ciência &amp; Tecnologia · 100% CPU · Python</p>
+  </div>
+
+  <div class="pipeline">
+
+    <div class="step">
+      <div class="step-icon blue">📈</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 01</div>
+        <div class="step-title">Trend Hunter</div>
+        <div class="step-desc">Busca tópicos em alta de ciência e tecnologia no Google Trends e Reddit. Exibe lista interativa para você escolher o tema do vídeo.</div>
+        <div class="step-chips">
+          <span class="chip blue">pytrends</span>
+          <span class="chip blue">praw</span>
+          <span class="chip muted">r/science</span>
+          <span class="chip muted">r/technology</span>
+          <span class="chip muted">Google Trends BR</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-icon purple">🤖</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 02</div>
+        <div class="step-title">Script Writer</div>
+        <div class="step-desc">Gera roteiro completo com Ollama local. Produz cenas estruturadas com narração em PT-BR e keywords visuais para cada cena.</div>
+        <div class="step-chips">
+          <span class="chip purple">Ollama local</span>
+          <span class="chip purple">llama3 / mistral</span>
+          <span class="chip muted">6–10 cenas</span>
+          <span class="chip muted">~180s de conteúdo</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-icon orange">🎙️</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 03</div>
+        <div class="step-title">TTS Narrator</div>
+        <div class="step-desc">Narra cada cena usando Coqui TTS com modelo em português. Engine herdada do ia_dubla_animes, adaptada para narração de documentário.</div>
+        <div class="step-chips">
+          <span class="chip orange">Coqui TTS</span>
+          <span class="chip orange">VITS PT-BR</span>
+          <span class="chip muted">audiostretchy</span>
+          <span class="chip muted">CPU only</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-icon green">🖼️</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 04</div>
+        <div class="step-title">Media Fetcher</div>
+        <div class="step-desc">Busca imagens e vídeos no Pexels usando as keywords geradas pelo roteiro. Baixa automaticamente mídia Full HD para cada cena.</div>
+        <div class="step-chips">
+          <span class="chip green">Pexels API</span>
+          <span class="chip muted">1920×1080</span>
+          <span class="chip muted">fotos + vídeos</span>
+          <span class="chip muted">gratuito</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-icon pink">🎬</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 05</div>
+        <div class="step-title">Video Editor</div>
+        <div class="step-desc">Monta o vídeo final combinando narração + mídia. Aplica efeito Ken Burns em fotos, usa vídeos com loop, sobreposição e fade entre cenas.</div>
+        <div class="step-chips">
+          <span class="chip pink">moviepy</span>
+          <span class="chip pink">ffmpeg</span>
+          <span class="chip muted">Ken Burns</span>
+          <span class="chip muted">intro animada</span>
+          <span class="chip muted">fade in/out</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-icon gold">✨</div>
+      <div class="step-content">
+        <div class="step-num">ETAPA 06</div>
+        <div class="step-title">Thumbnail + Metadata</div>
+        <div class="step-desc">Gera thumbnail profissional com Pillow. Cria todos os metadados: título otimizado, descrição com capítulos, tags e arquivo pronto para o YouTube Studio.</div>
+        <div class="step-chips">
+          <span class="chip gold">Pillow</span>
+          <span class="chip muted">1280×720</span>
+          <span class="chip muted">título + tags</span>
+          <span class="chip muted">capítulos automáticos</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="export-box">
+    <h3>📁 PASTA EXPORT — SAÍDA FINAL</h3>
+    <div class="files">
+      <div class="file-item">
+        <div class="file-ext ext-mp4">.MP4</div>
+        <div class="file-name">video_titulo.mp4<br>Vídeo final montado</div>
+      </div>
+      <div class="file-item">
+        <div class="file-ext ext-jpg">.JPG</div>
+        <div class="file-name">thumbnail.jpg<br>Thumbnail 1280×720</div>
+      </div>
+      <div class="file-item">
+        <div class="file-ext ext-json">.JSON</div>
+        <div class="file-name">metadata.json<br>Todos os metadados</div>
+      </div>
+      <div class="file-item">
+        <div class="file-ext ext-txt">.TXT</div>
+        <div class="file-name">youtube_upload.txt<br>Pronto p/ copiar</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tech-stack">
+    <span class="tech-label">STACK</span>
+    <span class="chip blue">Python 3.10+</span>
+    <span class="chip purple">Ollama</span>
+    <span class="chip orange">Coqui TTS</span>
+    <span class="chip green">Pexels API</span>
+    <span class="chip pink">moviepy</span>
+    <span class="chip gold">Pillow</span>
+    <span class="chip muted">pytrends</span>
+    <span class="chip muted">praw</span>
+    <span class="chip muted">ffmpeg</span>
+    <span class="chip muted">CPU only</span>
+  </div>
+
+</div>
+</body>
+</html>

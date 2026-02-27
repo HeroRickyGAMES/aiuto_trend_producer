@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/home/heroricky/ia_video_creator/.venv/bin/python3:*)"
+    ]
+  }
+}
