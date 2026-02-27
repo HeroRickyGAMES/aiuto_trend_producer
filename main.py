@@ -311,6 +311,12 @@ def pipeline_completo(
             log.info("Limpando arquivos temporarios...")
             shutil.rmtree(pasta_temp, ignore_errors=True)
 
+        media_cache = os.path.join(os.path.dirname(__file__), "assets", "media_cache")
+        if os.path.isdir(media_cache):
+            log.info("Limpando cache de midia...")
+            shutil.rmtree(media_cache, ignore_errors=True)
+            os.makedirs(media_cache, exist_ok=True)
+
 
 def pipeline_automatico(config: dict):
     """
