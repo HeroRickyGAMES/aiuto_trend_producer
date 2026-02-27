@@ -68,10 +68,24 @@ class ChatterboxNarrator:
             return self._model
 
         try:
+            import torch
             from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-            log.info("Carregando Chatterbox Multilingual TTS (primeira vez: baixa modelos)...")
-            self._model = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
-            log.info("Chatterbox Multilingual TTS carregado!")
+
+            # Patch torch.load: mtl_tts.py carrega ve.pt e s3gen.pt sem map_location,
+            # falhando em máquinas CPU-only quando os pesos foram salvos com referências CUDA.
+            _orig_load = torch.load
+            def _cpu_load(*args, **kwargs):
+                kwargs.setdefault("map_location", "cpu")
+                return _orig_load(*args, **kwargs)
+            torch.load = _cpu_load
+
+            try:
+                log.info("Carregando Chatterbox Multilingual TTS (primeira vez: baixa modelos)...")
+                self._model = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
+                log.info("Chatterbox Multilingual TTS carregado!")
+            finally:
+                torch.load = _orig_load  # restaura sempre, mesmo em erro
+
             return self._model
         except ImportError:
             raise ImportError(
