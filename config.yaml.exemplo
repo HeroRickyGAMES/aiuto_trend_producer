@@ -15,12 +15,20 @@ llm:
 tts:
   model: tts_models/multilingual/multi-dataset/xtts_v2
   language: pt             # código para XTTS v2 (não use pt-BR aqui)
-  speed: 1.1               # 1.0 = normal | 1.1–1.3 = mais rápido e natural
+  speed: 1.0               # 1.0 = natural; a naturalidade vem de temperature, não de speed
   speaker: ""              # deixe vazio para auto-seleção
   output_format: wav
-  # Clonagem de voz: grave 5–15s da sua voz e aponte aqui
+  # Clonagem de voz: mínimo 5s, sem música de fundo. Arquivos longos OK — XTTS usa até 30s.
   # Formatos aceitos: wav, mp3, flac
   voice_sample: assets/voices/minha_voz.wav
+
+  # Parâmetros de geração — controlam prosódia e naturalidade da fala
+  # Requer do_sample=True (ativado automaticamente quando temperature != 1.0)
+  generation:
+    temperature: 0.75      # 0.6 = consistente/robótico | 0.75 = natural | 0.9 = expressivo/instável
+    top_k: 50              # candidatos por passo de geração — 50 é o ideal para XTTS v2
+    top_p: 0.85            # nucleus sampling — equilibra criatividade e coerência
+    repetition_penalty: 1.1  # penaliza repetição de tokens (reduz chiados e loops)
 
 # --- Banco de Mídia ---
 media:

@@ -25,6 +25,7 @@ TREND → ROTEIRO → NARRAÇÃO → MÍDIA → VÍDEO → EXPORT
   - [Referência de flags](#referência-de-flags)
 - [Fontes de trends](#fontes-de-trends)
 - [Modelos TTS](#modelos-tts)
+- [Skills Claude Code](#skills-claude-code)
 - [Solução de problemas](#solução-de-problemas)
 
 ---
@@ -327,8 +328,15 @@ llm:
 tts:
   model: tts_models/multilingual/multi-dataset/xtts_v2
   language: pt            # código de idioma para XTTS v2
-  speed: 1.1              # 1.0 = normal, 1.1 = ligeiramente mais rápido
+  speed: 1.0              # 1.0 = natural — não ajuste para naturalidade; use temperature
   voice_sample: assets/voices/minha_voz.wav   # clonagem de voz (opcional)
+
+  # Naturalidade da fala — ajuste fino de prosódia
+  generation:
+    temperature: 0.75     # 0.6 = robótico | 0.75 = natural (padrão) | 0.9 = expressivo
+    top_k: 50
+    top_p: 0.85
+    repetition_penalty: 1.1
 
 video:
   resolution: [1920, 1080]
@@ -347,13 +355,18 @@ O XTTS v2 pode narrar com a **sua voz** a partir de uma gravação de referênci
 
 ### Requisitos da gravação
 
-- Duração: **5 a 15 segundos** — XTTS v2 não melhora com arquivos mais longos; arquivos muito longos (minutos) causam comportamento imprevisível
+- Duração: **mínimo 5 segundos** — arquivos longos também funcionam; o XTTS v2 usa apenas os primeiros 30s (`gpt_cond_len=30`) e ignora o restante. Mais áudio limpo = melhor captura de timbre
 - Formato: WAV, MP3 ou FLAC
 - Canais: **mono** (1 canal) — estéreo funciona mas mono é mais estável
 - Sample rate: **22050 Hz** recomendado (44100 Hz também aceito)
-- Conteúdo: fale qualquer coisa naturalmente — não precisa ser o texto do vídeo
+- Conteúdo: fale qualquer coisa naturalmente, em português — não precisa ser o texto do vídeo
 - Qualidade: microfone de headset já é suficiente; evite música de fundo ou eco
 - Localização: o arquivo **deve estar em `assets/voices/minha_voz.wav`** — qualquer outro caminho exige atualizar `voice_sample` no `config.yaml`
+
+### Dica de gravação
+
+Para melhor resultado, grave lendo em voz natural (não forçada) algo como:
+> "A ciência é a linguagem do universo. Cada descoberta nos aproxima da verdade sobre nossa existência no cosmos e nos lembra que somos feitos de poeira de estrelas."
 
 ### Como adicionar
 
@@ -510,6 +523,22 @@ Quando todas as APIs falharem, o sistema oferece entrada manual do tema.
 
 O XTTS v2 (~1,8 GB) é baixado automaticamente na primeira execução.
 
+### Como a naturalidade da voz funciona
+
+O pipeline aplica várias técnicas para soar humano:
+
+| Técnica | Onde | Efeito |
+|---------|------|--------|
+| `temperature=0.75` + `do_sample=True` | Geração XTTS | Variação rítmica e prosódica natural |
+| `repetition_penalty=1.1` | Geração XTTS | Elimina loops e chiados repetitivos |
+| Divisão por sentença completa | `tts_narrator.py` | Cada unidade de fala é coerente |
+| Pausas por pontuação | `tts_narrator.py` | `.` = 380ms, `!` = 320ms, `,` = 90ms |
+| Strip de silêncio | `tts_narrator.py` | Remove silêncios extras do XTTS entre chunks |
+| High-pass 80 Hz (scipy) | `tts_narrator.py` | Remove rumble e DC offset |
+| Noise gate | `tts_narrator.py` | Silencia ruído entre frases |
+| Normalização para −16 dBFS | `tts_narrator.py` | Volume consistente (padrão YouTube/podcast) |
+| Números por extenso (num2words) | Pré-processamento | "5 planetas" → "cinco planetas" |
+
 ---
 
 ## Saída do pipeline
@@ -529,7 +558,44 @@ export/
 ## Solução de problemas
 
 ### `ImportError: TorchCodec is required for load_with_torchcodec`
-`torchaudio >= 2.5` trocou o backend padrão para `torchcodec`, que não vem instalado. Já corrigido via monkey-patch em `tts_narrator.py` — ele força o backend `soundfile` automaticamente antes do TTS carregar. Nenhuma ação necessária.
+`torchaudio >= 2.5` trocou o backend padrão para `torchcodec`, que não vem instalado. Já corrigido via monkey-patch em `tts_narrator.py` — substitui `torchaudio.load` por implementação `soundfile` automaticamente. Nenhuma ação necessária.
+
+### Áudio com "aaaa" em loop / narração incoerente
+Causado pelo `transformers >= 4.46` que pré-aloca um `DynamicCache` vazio antes do primeiro forward pass do XTTS. O modelo recebe só o token inicial sem contexto e gera lixo. Já corrigido com monkey-patch em `tts_narrator.py`. Confirme no log:
+```
+[TTSNarrator] Patch DynamicCache aplicado (fix transformers>=4.46)
+```
+Se não aparecer, verifique se `transformers >= 4.57.0` está instalado:
+```bash
+.venv/bin/python -c "import transformers; print(transformers.__version__)"
+```
+
+### `TypeError: Cannot create a consistent method resolution order (MRO)`
+Versão de `transformers` entre 4.35 e 4.56 onde `GPT2PreTrainedModel` herdava `GenerationMixin`, conflitando com o `GPT2InferenceModel` do XTTS. Solução:
+```bash
+pip install "transformers>=4.57.0"
+```
+
+### Tom robótico / fala monótona / staccato
+A naturalidade vem dos parâmetros de geração, não de `speed`. Verifique o `config.yaml`:
+```yaml
+tts:
+  speed: 1.0              # mantenha em 1.0
+  generation:
+    temperature: 0.75     # aumente para 0.80–0.85 se ainda soar robótico
+    repetition_penalty: 1.1
+```
+
+### Chiados ou hissing no áudio
+Pode ser ruído de fundo no arquivo `minha_voz.wav` ou `repetition_penalty` muito baixo. Tente:
+```yaml
+generation:
+  repetition_penalty: 1.15
+```
+E verifique se `scipy` está instalado (necessário para o filtro high-pass e noise gate):
+```bash
+pip install scipy>=1.10.0
+```
 
 ### `Retry.__init__() got an unexpected keyword argument 'method_whitelist'`
 Incompatibilidade entre `pytrends` e `urllib3 >= 2.0`. Já corrigido — não passe `retries` ao `TrendReq`.
@@ -540,24 +606,17 @@ O Google limita requisições muito rápidas. O pipeline já adiciona delay prog
 ### Reddit 403 Blocked
 Reddit bloqueou a API pública em 2023. **Removido do projeto** — substituído por Hacker News e NASA RSS.
 
-### `Lista de speakers inacessível — usando fallback: Daisy Studious` / voz feminina no vídeo
+### Voz feminina no vídeo (Daisy Studious) / sem clonagem
 O XTTS v2 está rodando sem clonagem de voz. "Daisy Studious" é uma falante **inglesa feminina** — o resultado em português fica com sotaque e prosódia ruins.
 
 Causas comuns:
-- Arquivo em lugar errado: o config espera `assets/voices/minha_voz.wav` mas o arquivo está em outro caminho
-- Arquivo muito longo: XTTS v2 precisa de **5–15 segundos**; arquivos de minutos são ignorados silenciosamente
-- Arquivo não existe ainda: grave sua voz (veja seção [Clonagem de voz](#clonagem-de-voz))
+- Arquivo em lugar errado — o config espera `assets/voices/minha_voz.wav`
+- Arquivo muito curto — mínimo 5 segundos; abaixo disso o modelo não captura timbre suficiente
+- Arquivo não existe ainda — grave sua voz (veja seção [Clonagem de voz](#clonagem-de-voz))
 
-Confirmação de que a clonagem está ativa — procure esta linha no log:
+Confirme que a clonagem está ativa procurando no log:
 ```
-[TTSNarrator] Modo clonagem de voz ATIVO: .../assets/voices/minha_voz.wav
-```
-
-### Narração muito lenta / vídeo muito longo
-Ajuste `speed` no `config.yaml`:
-```yaml
-tts:
-  speed: 1.2   # tente entre 1.1 e 1.3
+[TTSNarrator] Modo clonagem ATIVO: .../assets/voices/minha_voz.wav
 ```
 
 ### `TTS` não instala / erro de compilação
@@ -591,6 +650,20 @@ Verifique se `torch` está instalado sem CUDA desnecessário:
 python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"
 # deve imprimir: False
 ```
+
+---
+
+## Skills Claude Code
+
+Se você usa o Claude Code (CLI) para desenvolver este projeto, há skills disponíveis em `.claude/skills/`:
+
+| Skill | Comando | O que faz |
+|-------|---------|-----------|
+| `make-video` | `/make-video` | Guia para rodar o pipeline completo, verifica ambiente e Ollama |
+| `debug-tts` | `/debug-tts` | Diagnóstico completo de problemas de áudio — versões, qualidade do wav, teste de síntese |
+| `ajustar-voz` | `/ajustar-voz` | Processa e configura o arquivo de referência para clonagem de voz |
+
+As skills são locais ao projeto (`.claude/skills/`) e ficam disponíveis automaticamente ao abrir o projeto no Claude Code.
 
 ---
 

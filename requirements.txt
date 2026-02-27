@@ -18,6 +18,8 @@ transformers>=4.57.0,<5.0.0  # <4.57 tem MRO error (GPT2InferenceModel); >=4.57 
 pydub>=0.25.1
 soundfile>=0.12.1
 numpy>=1.24.0
+scipy>=1.10.0     # filtros de áudio: high-pass, noise gate
+num2words>=0.5.12 # converte números para palavras em pt-BR (naturalidade TTS)
 
 # --- Vídeo ---
 moviepy>=1.0.3

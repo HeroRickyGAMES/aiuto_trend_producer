@@ -5,7 +5,7 @@
 # -----------------------------------------------
 # SEGURANÇA — nunca commitar
 # -----------------------------------------------
-config.yaml          # contém chaves de API (Pexels)
+config.yaml
 .env
 *.key
 *.secret
