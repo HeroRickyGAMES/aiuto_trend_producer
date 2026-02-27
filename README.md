@@ -555,14 +555,17 @@ Quando todas as APIs falharem, o sistema oferece entrada manual do tema.
 
 ## Modelos TTS
 
-| Motor | Licença | Qualidade | CPU | Clonagem | Tamanho | Preserva voz masculina |
-|-------|---------|-----------|-----|----------|---------|------------------------|
-| **Chatterbox TTS** (padrão) | Apache 2.0 | Excelente (supera ElevenLabs) | Sim | **Sim** | ~600 MB | **Excelente** |
-| Coqui XTTS v2 (alternativa) | CPML* | Muito boa | Sim | **Sim** | ~1,8 GB | Razoável** |
-| `tts_models/pt/cv/vits` | MPL 2.0 | Boa | Rápido | Não | ~50 MB | — |
+| Motor | Idiomas | Licença | Qualidade | CPU | Clonagem | Tamanho |
+|-------|---------|---------|-----------|-----|----------|---------|
+| **Chatterbox TTS Multilingual** (padrão) | pt-BR + 22 idiomas | Apache 2.0 | Excelente | Sim | **Sim** | ~600 MB |
+| Coqui XTTS v2 | pt-BR, multilingual | CPML* | Excelente | Sim | **Sim** | ~1,8 GB |
+| `tts_models/pt/cv/vits` | pt-BR | MPL 2.0 | Boa | Rápido | Não | ~50 MB |
 
 \* CPML = Coqui Public Model License (restrições para uso comercial em escala)
-\*\* XTTS v2 pode feminilizar vozes masculinas — use Chatterbox para melhor resultado
+
+**Idiomas suportados pelo Chatterbox Multilingual:** ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms, nl, no, pl, **pt**, ru, sv, sw, tr, zh
+
+> O Chatterbox usa `ChatterboxMultilingualTTS` com `language_id="pt"` — tokenizador multilingual nativo, sem sotaque espanhol.
 
 Os modelos são baixados automaticamente na primeira execução.
 
@@ -571,8 +574,8 @@ Os modelos são baixados automaticamente na primeira execução.
 ```yaml
 # config.yaml
 tts:
-  provider: chatterbox   # padrão — melhor qualidade, preserva voz masculina
-  # provider: xtts       # alternativa — XTTS v2
+  provider: chatterbox   # padrão — multilingual, pt-BR nativo, Apache 2.0
+  # provider: xtts       # alternativa — Coqui XTTS v2, também pt-BR nativo
 ```
 
 ### Como a naturalidade da voz funciona
@@ -582,7 +585,8 @@ O pipeline aplica várias técnicas para soar humano:
 | Técnica | Onde | Efeito |
 |---------|------|--------|
 | Clonagem zero-shot com referência | Chatterbox / XTTS | Tom, timbre e sotaque da sua voz |
-| `exaggeration=0.5` | Chatterbox | Intensidade da clonagem — 0.5 = equilíbrio natural |
+| `language_id="pt"` (MTLTokenizer) | Chatterbox | Fonemas portugueses corretos — sem sotaque espanhol |
+| `exaggeration=0.5` + `cfg_weight=0.5` | Chatterbox | Equilíbrio naturalidade/fidelidade de clonagem |
 | `temperature=0.65` + `do_sample=True` | XTTS | Variação rítmica e prosódica natural |
 | `repetition_penalty=1.1` | XTTS | Elimina loops e chiados repetitivos |
 | Limpeza de stage directions | Pré-processamento | Remove `[Pausa]`, `(voz grave)`, `Ponto.` do texto gerado pelo LLM |
@@ -659,7 +663,6 @@ tts:
 generation:
   temperature: 0.60   # mais plano e consistente
 ```
-Se persistir, troque para `provider: chatterbox` que não tem esse problema.
 
 ### Cliques / "trunk trunk trunk" no áudio
 Era causado pelo noise gate com hard-switch a cada 20ms. **Já corrigido** — o noise gate foi removido. Se ainda ocorrer, verifique se está rodando a versão mais recente do `tts_narrator.py`.
@@ -673,6 +676,13 @@ Pode ser ruído de fundo no arquivo `minha_voz.wav` que o modelo clona junto com
 .venv/bin/pip install scipy>=1.10.0
 ```
 
+### Chatterbox narrou em espanhol / sotaque estranho
+O Chatterbox deve usar `ChatterboxMultilingualTTS` com `language_id="pt"`. Se usar a versão antiga (`ChatterboxTTS`), o tokenizador inglês processa fonemas do português como espanhol. Confirme no log:
+```
+[ChatterboxNarrator] Carregando Chatterbox Multilingual TTS...
+```
+Se aparecer `Carregando Chatterbox TTS` (sem "Multilingual"), atualize para a versão mais recente do `chatterbox_narrator.py`.
+
 ### Voz feminina no vídeo / voz errada (Chatterbox)
 O arquivo de referência não está sendo encontrado. Verifique:
 ```bash
@@ -685,11 +695,11 @@ E confirme no log de execução:
 Se aparecer `INATIVO`, o arquivo não foi encontrado — verifique o caminho em `config.yaml → tts.voice_sample`.
 
 ### Voz feminina / feminilização de voz masculina (XTTS v2)
-O XTTS v2 tem uma limitação conhecida de feminilizar vozes masculinas, especialmente quando o pré-processamento de áudio remove os harmônicos graves. Solução definitiva: migre para `provider: chatterbox`.
+O XTTS v2 pode feminilizar vozes masculinas se o pré-processamento remover harmônicos graves.
 
 Se precisar manter XTTS, causas comuns:
 - Arquivo `minha_voz.wav` em lugar errado → confirme o log `Modo clonagem ATIVO`
-- Pré-processamento agressivo removendo frequências graves — já corrigido (high-pass em 60 Hz, subtração espectral conservadora)
+- Pré-processamento agressivo removendo frequências graves — já corrigido (high-pass em 60 Hz, subtração espectral conservadora com floor=0.5)
 
 ### Stage directions sendo lidas em voz alta ("Ponto", "Pausa"...)
 O LLM pode inserir anotações técnicas na narração (`[Pausa]`, `(voz grave)`, `Ponto.`). O pipeline remove automaticamente no pré-processamento. Se ainda ocorrer, o LLM pode estar formatando de forma incomum — adicione ao prompt do `script_writer.py` mais exemplos do que não deve aparecer.

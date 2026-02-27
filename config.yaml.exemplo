@@ -14,9 +14,11 @@ llm:
 # --- TTS ---
 tts:
   # provider: qual motor TTS usar
-  #   "chatterbox" — Chatterbox TTS (recomendado): Apache 2.0, melhor que ElevenLabs,
-  #                  preserva voz masculina, roda em CPU. pip install chatterbox-tts
-  #   "xtts"       — Coqui XTTS v2: alternativa, boa qualidade, CPML license
+  #   "chatterbox" — Chatterbox TTS Multilingual (padrão): Apache 2.0, qualidade superior,
+  #                  suporte nativo a pt-BR via ChatterboxMultilingualTTS (language_id="pt")
+  #                  Idiomas: ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms,
+  #                           nl, no, pl, pt, ru, sv, sw, tr, zh
+  #   "xtts"       — Coqui XTTS v2: alternativa robusta, suporte nativo a pt-BR
   provider: chatterbox
 
   # Áudio de referência para clonagem (usado por ambos os providers)

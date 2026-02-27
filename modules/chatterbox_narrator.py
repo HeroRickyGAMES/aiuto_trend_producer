@@ -1,9 +1,13 @@
 """
 chatterbox_narrator.py
-Narração TTS usando Chatterbox TTS (resemble-ai/chatterbox).
-Apache 2.0 — superior ao ElevenLabs em benchmarks de naturalidade.
-Preserva voz masculina melhor que XTTS v2.
+Narração TTS usando Chatterbox TTS Multilingual (resemble-ai/chatterbox).
+Usa ChatterboxMultilingualTTS com language_id="pt" — suporte nativo a português.
+Apache 2.0 — qualidade superior ao ElevenLabs, preserva voz masculina.
 Roda 100% em CPU (Ryzen 5500 compatível).
+
+Idiomas suportados pelo modelo multilingual:
+ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms,
+nl, no, pl, pt, ru, sv, sw, tr, zh
 """
 
 import os
@@ -64,10 +68,10 @@ class ChatterboxNarrator:
             return self._model
 
         try:
-            from chatterbox.tts import ChatterboxTTS
-            log.info("Carregando Chatterbox TTS (primeira vez: baixa ~600MB)...")
-            self._model = ChatterboxTTS.from_pretrained(device="cpu")
-            log.info("Chatterbox TTS carregado!")
+            from chatterbox.mtl_tts import ChatterboxMultilingualTTS
+            log.info("Carregando Chatterbox Multilingual TTS (primeira vez: baixa modelos)...")
+            self._model = ChatterboxMultilingualTTS.from_pretrained(device="cpu")
+            log.info("Chatterbox Multilingual TTS carregado!")
             return self._model
         except ImportError:
             raise ImportError(
@@ -167,6 +171,7 @@ class ChatterboxNarrator:
         import torchaudio
 
         kwargs = {
+            "language_id":  "pt",
             "exaggeration": self.exaggeration,
             "cfg_weight":   self.cfg_weight,
         }
