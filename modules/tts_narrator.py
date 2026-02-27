@@ -48,15 +48,16 @@ MODELO_CLONAGEM = "tts_models/multilingual/multi-dataset/xtts_v2"
 IDIOMA_PADRAO = "pt"
 
 # Duração de pausa (ms) conforme pontuação que termina a sentença
+# Valores curtos = ritmo de apresentador de podcast/YouTube, não de audiolivro
 _PAUSAS_MS = {
-    ".": 380,   # ponto final — pausa de respiração
-    "!": 320,   # exclamação
-    "?": 320,   # interrogação
-    ";": 220,   # ponto-e-vírgula
-    ":": 180,   # dois-pontos
-    ",": 90,    # vírgula (usado quando dividimos em sub-frases)
+    ".": 120,   # ponto final — respiração natural
+    "!": 100,   # exclamação
+    "?": 110,   # interrogação
+    ";": 80,    # ponto-e-vírgula
+    ":": 70,    # dois-pontos
+    ",": 40,    # vírgula (sub-frase)
 }
-_PAUSA_DEFAULT_MS = 250
+_PAUSA_DEFAULT_MS = 80
 
 
 class TTSNarrator:
@@ -132,14 +133,14 @@ class TTSNarrator:
             samples = np.array(trecho.get_array_of_samples(), dtype=np.float32) / 32768.0
             sr = trecho.frame_rate
 
-            # 4. High-pass 80 Hz — remove rumble/vibração de fundo
+            # 4. High-pass 60 Hz — remove rumble/DC sem cortar harmônicos graves masculinos
+            # (voz masculina: fundamental 100-140 Hz → não usar >70 Hz aqui)
             nyq = sr / 2.0
-            b, a = butter(2, 80.0 / nyq, btype='high')
+            b, a = butter(2, 60.0 / nyq, btype='high')
             samples = filtfilt(b, a, samples)
 
-            # 5. Subtração espectral — reduz ruído estacionário (hiss, sala, AC)
-            # Busca um trecho de silêncio REAL no ARQUIVO ORIGINAL para estimar o ruído.
-            # Isso evita usar fala como referência de ruído (o erro mais comum).
+            # 5. Subtração espectral conservadora — reduz hiss sem distorcer timbre
+            # Parâmetros conservadores: evita remover harmônicos graves que definem voz masculina
             noise_ref = None
 
             # Tenta primeiro: silêncio no arquivo original (antes da fala)
@@ -178,13 +179,14 @@ class TTSNarrator:
             f, t, Zxx = stft(samples, fs=sr, nperseg=nperseg, noverlap=noverlap)
             _, _, Zxx_n = stft(noise_ref, fs=sr, nperseg=nperseg, noverlap=noverlap)
 
-            # Perfil de ruído médio (com margem de segurança 1.5x)
-            noise_profile = np.mean(np.abs(Zxx_n), axis=1, keepdims=True) * 1.5
+            # Perfil de ruído médio — fator 0.8 (conservador, evita artefatos)
+            # 1.5x era agressivo demais e feminilizava a voz removendo harmônicos graves
+            noise_profile = np.mean(np.abs(Zxx_n), axis=1, keepdims=True) * 0.8
 
-            # Subtração espectral com flooring (não vai abaixo de 15% do original)
+            # Subtração espectral com floor alto (50%) — preserva corpo da voz masculina
             mag = np.abs(Zxx)
             phase = np.angle(Zxx)
-            mag_clean = np.maximum(mag - noise_profile, 0.15 * mag)
+            mag_clean = np.maximum(mag - noise_profile, 0.5 * mag)
 
             # Suaviza transições (reduz "musical noise" = chiado residual metálico)
             from scipy.ndimage import uniform_filter
@@ -319,9 +321,26 @@ class TTSNarrator:
     # ─────────────────────────────────────────────────────────────────────────
 
     def _limpar_texto(self, texto: str) -> str:
-        """Remove emojis, markdown, normaliza espaços."""
+        """
+        Remove emojis, markdown e stage directions do LLM.
+        Stage directions comuns: [Pausa], [PONTO], (voz dramática), (PAUSA),
+        e uso de "Ponto." / "Pausa." como sentença isolada de ênfase.
+        """
+        # Remove emojis e caracteres fora do latino/básico
         texto = re.sub(r'[^\x00-\x7F\u00C0-\u024F\u1E00-\u1EFF]', '', texto)
-        texto = re.sub(r'\*+|#+|_{2,}|`+|\[|\]', '', texto)
+        # Remove blocos [colchetes] inteiros — stage directions do LLM (ex: [Pausa], [PONTO])
+        texto = re.sub(r'\[.*?\]', '', texto)
+        # Remove (PARÊNTESES EM CAPS) — direções de voz em maiúsculas (ex: (PAUSA), (GRAVE))
+        texto = re.sub(r'\([A-ZÁÀÃÂÉÊÍÓÕÔÚÇ][^)]{0,40}\)', '', texto)
+        # Remove "Ponto." / "Pausa." / "Silêncio." usados como ênfase entre sentenças
+        # Ex: "É impossível. Ponto. Nada escapa." → "É impossível. Nada escapa."
+        texto = re.sub(
+            r'(?<=[.!?])\s+(?:Ponto|Pausa|Silêncio|Fim|Pronto)\.(?=\s+[A-ZÁÀÃÂÉÊÍ])',
+            '',
+            texto
+        )
+        # Remove markdown restante
+        texto = re.sub(r'\*+|#+|_{2,}|`+', '', texto)
         texto = re.sub(r'\s+', ' ', texto)
         return texto.strip()
 
@@ -512,14 +531,13 @@ class TTSNarrator:
 
     def _aplicar_filtros(self, audio: AudioSegment) -> AudioSegment:
         """
-        Filtros para qualidade de broadcast:
-        - High-pass 80 Hz (remove rumble e DC offset)
-        - Noise gate suave (atenua ruído entre falas)
+        High-pass 60 Hz — remove DC offset e sub-bass sem afetar voz masculina.
+        Noise gate removido: causava "trunk trunk trunk" por switching brusco a cada 20ms.
+        A subtração espectral na referência já cuida do ruído de fundo.
         """
         try:
             from scipy import signal as sp_signal
 
-            # Converte para float64
             samples = np.array(audio.get_array_of_samples(), dtype=np.float64)
             is_stereo = audio.channels == 2
             if is_stereo:
@@ -529,9 +547,9 @@ class TTSNarrator:
             max_val = float(2 ** (audio.sample_width * 8 - 1))
             s_norm = samples / max_val
 
-            # High-pass Butterworth de 2ª ordem a 80 Hz
+            # High-pass Butterworth de 2ª ordem a 60 Hz
             nyq = sr / 2.0
-            b, a = sp_signal.butter(2, 80.0 / nyq, btype='high')
+            b, a = sp_signal.butter(2, 60.0 / nyq, btype='high')
 
             if is_stereo:
                 filtered = np.column_stack([
@@ -542,16 +560,6 @@ class TTSNarrator:
             else:
                 filtered = sp_signal.filtfilt(b, a, s_norm)
 
-            # Noise gate: RMS por janela de 20ms
-            win = max(1, int(sr * 0.02))
-            gate_thresh = 10 ** (-52.0 / 20.0)  # -52 dBFS
-            for i in range(0, len(filtered), win):
-                chunk = filtered[i:i + win]
-                rms = np.sqrt(np.mean(chunk ** 2)) if len(chunk) > 0 else 0.0
-                if rms < gate_thresh:
-                    filtered[i:i + win] *= 0.04   # -28 dB de atenuação
-
-            # Converte de volta
             out = np.clip(filtered * max_val, -max_val, max_val - 1)
             out = out.astype(np.int16 if audio.sample_width == 2 else np.int32)
             return audio._spawn(out.tobytes())
@@ -617,6 +625,8 @@ class TTSNarrator:
                 self._sintetizar_sentenca(tts, sent, tmp_path)
                 seg = AudioSegment.from_wav(tmp_path)
                 seg = self._strip_silence(seg)
+                # Micro-fade por segmento para evitar clicks nas junções
+                seg = seg.fade_in(8).fade_out(12)
                 segmentos.append((sent, seg))
             except Exception as e:
                 log.error(f"  Erro na sentença {i+1}: {e}")

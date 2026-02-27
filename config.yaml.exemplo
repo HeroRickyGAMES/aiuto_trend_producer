@@ -13,22 +13,32 @@ llm:
 
 # --- TTS ---
 tts:
+  # provider: qual motor TTS usar
+  #   "chatterbox" — Chatterbox TTS (recomendado): Apache 2.0, melhor que ElevenLabs,
+  #                  preserva voz masculina, roda em CPU. pip install chatterbox-tts
+  #   "xtts"       — Coqui XTTS v2: alternativa, boa qualidade, CPML license
+  provider: chatterbox
+
+  # Áudio de referência para clonagem (usado por ambos os providers)
+  # Mínimo 5s, sem música de fundo. Arquivos longos OK (Chatterbox usa até 30s).
+  voice_sample: assets/voices/minha_voz.wav
+  speed: 1.0
+
+  # ── Chatterbox TTS ──────────────────────────────────────────────────────
+  chatterbox:
+    exaggeration: 0.5      # intensidade da clonagem: 0.3=sutil | 0.5=natural | 0.7=forte
+    cfg_weight: 0.5        # classifier-free guidance: 0.5 = equilíbrio naturalidade/fidelidade
+
+  # ── XTTS v2 (usado apenas se provider: xtts) ────────────────────────────
   model: tts_models/multilingual/multi-dataset/xtts_v2
   language: pt             # código para XTTS v2 (não use pt-BR aqui)
-  speed: 1.0               # 1.0 = natural; a naturalidade vem de temperature, não de speed
   speaker: ""              # deixe vazio para auto-seleção
   output_format: wav
-  # Clonagem de voz: mínimo 5s, sem música de fundo. Arquivos longos OK — XTTS usa até 30s.
-  # Formatos aceitos: wav, mp3, flac
-  voice_sample: assets/voices/minha_voz.wav
-
-  # Parâmetros de geração — controlam prosódia e naturalidade da fala
-  # Requer do_sample=True (ativado automaticamente quando temperature != 1.0)
   generation:
-    temperature: 0.75      # 0.6 = consistente/robótico | 0.75 = natural | 0.9 = expressivo/instável
-    top_k: 50              # candidatos por passo de geração — 50 é o ideal para XTTS v2
-    top_p: 0.85            # nucleus sampling — equilibra criatividade e coerência
-    repetition_penalty: 1.1  # penaliza repetição de tokens (reduz chiados e loops)
+    temperature: 0.65      # 0.5 = robótico/monótono | 0.65 = natural | 0.8+ = melódico/cantado
+    top_k: 50
+    top_p: 0.85
+    repetition_penalty: 1.1
 
 # --- Banco de Mídia ---
 media:

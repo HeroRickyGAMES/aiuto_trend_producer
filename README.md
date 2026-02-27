@@ -25,6 +25,8 @@ TREND → ROTEIRO → NARRAÇÃO → MÍDIA → VÍDEO → EXPORT
   - [Referência de flags](#referência-de-flags)
 - [Fontes de trends](#fontes-de-trends)
 - [Modelos TTS](#modelos-tts)
+  - [Como trocar o motor TTS](#como-trocar-o-motor-tts)
+  - [Como a naturalidade da voz funciona](#como-a-naturalidade-da-voz-funciona)
 - [Skills Claude Code](#skills-claude-code)
 - [Solução de problemas](#solução-de-problemas)
 
@@ -37,7 +39,7 @@ TREND → ROTEIRO → NARRAÇÃO → MÍDIA → VÍDEO → EXPORT
 | 1 | `trend_hunter.py` | Busca tópicos em alta (Google Trends + Hacker News + NASA RSS) |
 | 2 | `script_writer.py` | Gera roteiro com Ollama (IA local) |
 | 3 | `media_fetcher.py` | Baixa imagens e vídeos do Pexels por cena |
-| 4 | `tts_narrator.py` | Narra o roteiro com Coqui XTTS v2 (suporta clonagem de voz) |
+| 4 | `chatterbox_narrator.py` / `tts_narrator.py` | Narra com Chatterbox TTS (padrão) ou Coqui XTTS v2 — ambos com clonagem de voz |
 | 5 | `video_editor.py` | Monta o vídeo com moviepy (Ken Burns, transições, mixagem) |
 | 6 | `thumb_generator.py` + `metadata_gen.py` | Gera thumbnail e metadados prontos para o YouTube |
 
@@ -54,7 +56,8 @@ ia_video_creator/
 ├── modules/
 │   ├── trend_hunter.py         # Google Trends + Hacker News + NASA RSS
 │   ├── script_writer.py        # Roteiro via Ollama
-│   ├── tts_narrator.py         # Narração XTTS v2 com clonagem de voz
+│   ├── chatterbox_narrator.py  # Narração Chatterbox TTS (padrão, Apache 2.0)
+│   ├── tts_narrator.py         # Narração XTTS v2 (alternativa, Coqui CPML)
 │   ├── media_fetcher.py        # Imagens e vídeos do Pexels
 │   ├── video_editor.py         # Montagem com moviepy
 │   ├── thumb_generator.py      # Thumbnail 1280×720
@@ -102,7 +105,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-> O primeiro `pip install` demora — PyTorch (~700 MB) e Coqui TTS são pesados.
+> O primeiro `pip install` demora — PyTorch (~700 MB), Chatterbox TTS e Coqui TTS são pesados. O modelo Chatterbox (~600 MB) baixa automaticamente na primeira síntese.
 
 > **Compatibilidade torchaudio:** versões >= 2.5 (incluindo a 2.10 atual) tentam usar `torchcodec` como backend de áudio, que não é instalado por padrão. O projeto já contém um patch automático em `tts_narrator.py` que força o backend `soundfile`. Nenhuma ação necessária.
 
@@ -245,7 +248,7 @@ notepad config.yaml
 python main.py
 ```
 
-> **Nota:** o Coqui TTS no Windows faz download do modelo XTTS v2 (~1,8 GB) na primeira execução. Pode demorar dependendo da conexão.
+> **Nota:** na primeira execução, o Chatterbox TTS baixa seu modelo (~600 MB). Se estiver usando `provider: xtts`, o XTTS v2 baixa ~1,8 GB. Ambos são automáticos — pode demorar dependendo da conexão.
 
 ---
 
@@ -326,14 +329,18 @@ llm:
   temperature: 0.7        # criatividade do roteiro (0.0–1.0)
 
 tts:
-  model: tts_models/multilingual/multi-dataset/xtts_v2
-  language: pt            # código de idioma para XTTS v2
-  speed: 1.0              # 1.0 = natural — não ajuste para naturalidade; use temperature
+  provider: chatterbox    # "chatterbox" (padrão, recomendado) ou "xtts"
   voice_sample: assets/voices/minha_voz.wav   # clonagem de voz (opcional)
+  speed: 1.0
 
-  # Naturalidade da fala — ajuste fino de prosódia
+  # Parâmetros Chatterbox (usados se provider: chatterbox)
+  chatterbox:
+    exaggeration: 0.5     # intensidade da clonagem: 0.3=sutil | 0.5=natural | 0.7=forte
+    cfg_weight: 0.5       # guidance: 0.5 = equilíbrio naturalidade/fidelidade
+
+  # Parâmetros XTTS v2 (usados se provider: xtts)
   generation:
-    temperature: 0.75     # 0.6 = robótico | 0.75 = natural (padrão) | 0.9 = expressivo
+    temperature: 0.65     # 0.5=robótico | 0.65=natural | 0.8+=melódico/cantado
     top_k: 50
     top_p: 0.85
     repetition_penalty: 1.1
@@ -351,14 +358,14 @@ script:
 
 ## Clonagem de voz
 
-O XTTS v2 pode narrar com a **sua voz** a partir de uma gravação de referência.
+O Chatterbox TTS (e o XTTS v2 como alternativa) podem narrar com a **sua voz** a partir de uma gravação de referência.
 
 ### Requisitos da gravação
 
-- Duração: **mínimo 5 segundos** — arquivos longos também funcionam; o XTTS v2 usa apenas os primeiros 30s (`gpt_cond_len=30`) e ignora o restante. Mais áudio limpo = melhor captura de timbre
+- Duração: **mínimo 5 segundos** — arquivos longos também funcionam (ambos os modelos usam até ~30s)
 - Formato: WAV, MP3 ou FLAC
-- Canais: **mono** (1 canal) — estéreo funciona mas mono é mais estável
-- Sample rate: **22050 Hz** recomendado (44100 Hz também aceito)
+- Canais: mono ou estéreo (o pipeline converte automaticamente)
+- Sample rate: qualquer (convertido automaticamente)
 - Conteúdo: fale qualquer coisa naturalmente, em português — não precisa ser o texto do vídeo
 - Qualidade: microfone de headset já é suficiente; evite música de fundo ou eco
 - Localização: o arquivo **deve estar em `assets/voices/minha_voz.wav`** — qualquer outro caminho exige atualizar `voice_sample` no `config.yaml`
@@ -548,12 +555,25 @@ Quando todas as APIs falharem, o sistema oferece entrada manual do tema.
 
 ## Modelos TTS
 
-| Modelo | Qualidade | Velocidade CPU | Clonagem de voz |
-|--------|-----------|----------------|-----------------|
-| `tts_models/pt/cv/vits` | Boa | Rápido (~5s/cena) | Não |
-| `tts_models/multilingual/multi-dataset/xtts_v2` | Excelente | Lento (~2–5 min/cena) | **Sim** |
+| Motor | Licença | Qualidade | CPU | Clonagem | Tamanho | Preserva voz masculina |
+|-------|---------|-----------|-----|----------|---------|------------------------|
+| **Chatterbox TTS** (padrão) | Apache 2.0 | Excelente (supera ElevenLabs) | Sim | **Sim** | ~600 MB | **Excelente** |
+| Coqui XTTS v2 (alternativa) | CPML* | Muito boa | Sim | **Sim** | ~1,8 GB | Razoável** |
+| `tts_models/pt/cv/vits` | MPL 2.0 | Boa | Rápido | Não | ~50 MB | — |
 
-O XTTS v2 (~1,8 GB) é baixado automaticamente na primeira execução.
+\* CPML = Coqui Public Model License (restrições para uso comercial em escala)
+\*\* XTTS v2 pode feminilizar vozes masculinas — use Chatterbox para melhor resultado
+
+Os modelos são baixados automaticamente na primeira execução.
+
+### Como trocar o motor TTS
+
+```yaml
+# config.yaml
+tts:
+  provider: chatterbox   # padrão — melhor qualidade, preserva voz masculina
+  # provider: xtts       # alternativa — XTTS v2
+```
 
 ### Como a naturalidade da voz funciona
 
@@ -561,15 +581,21 @@ O pipeline aplica várias técnicas para soar humano:
 
 | Técnica | Onde | Efeito |
 |---------|------|--------|
-| `temperature=0.75` + `do_sample=True` | Geração XTTS | Variação rítmica e prosódica natural |
-| `repetition_penalty=1.1` | Geração XTTS | Elimina loops e chiados repetitivos |
-| Divisão por sentença completa | `tts_narrator.py` | Cada unidade de fala é coerente |
-| Pausas por pontuação | `tts_narrator.py` | `.` = 380ms, `!` = 320ms, `,` = 90ms |
-| Strip de silêncio | `tts_narrator.py` | Remove silêncios extras do XTTS entre chunks |
-| High-pass 80 Hz (scipy) | `tts_narrator.py` | Remove rumble e DC offset |
-| Noise gate | `tts_narrator.py` | Silencia ruído entre frases |
-| Normalização para −16 dBFS | `tts_narrator.py` | Volume consistente (padrão YouTube/podcast) |
-| Números por extenso (num2words) | Pré-processamento | "5 planetas" → "cinco planetas" |
+| Clonagem zero-shot com referência | Chatterbox / XTTS | Tom, timbre e sotaque da sua voz |
+| `exaggeration=0.5` | Chatterbox | Intensidade da clonagem — 0.5 = equilíbrio natural |
+| `temperature=0.65` + `do_sample=True` | XTTS | Variação rítmica e prosódica natural |
+| `repetition_penalty=1.1` | XTTS | Elimina loops e chiados repetitivos |
+| Limpeza de stage directions | Pré-processamento | Remove `[Pausa]`, `(voz grave)`, `Ponto.` do texto gerado pelo LLM |
+| Expansão de abreviações | Pré-processamento | `Dr.` → `Doutor`, `km` → `quilômetros` |
+| Números por extenso (num2words) | Pré-processamento | `5 planetas` → `cinco planetas` |
+| Divisão por sentença completa | Narrador | Cada unidade de fala é coerente |
+| Pausas por pontuação | Narrador | `.` = 120ms, `!` = 100ms, `,` = 40ms |
+| Micro-fade por segmento (8ms/12ms) | Narrador | Elimina clicks nas junções entre sentenças |
+| High-pass 60 Hz (scipy) | Pós-processamento | Remove rumble/DC sem cortar harmônicos graves masculinos |
+| Compressão dinâmica suave | Pós-processamento | Controla picos sem perder dinâmica da voz |
+| Normalização para −16 dBFS | Pós-processamento | Volume consistente (padrão YouTube/podcast) |
+
+> **Por que 60 Hz e não 80 Hz?** O fundamental de uma voz masculina começa em ~100–140 Hz. Filtrar em 80 Hz corta perto demais e deixa a voz mais fina/feminina. 60 Hz remove apenas DC offset e vibração de estrutura.
 
 ---
 
@@ -609,25 +635,64 @@ pip install "transformers>=4.57.0"
 ```
 
 ### Tom robótico / fala monótona / staccato
-A naturalidade vem dos parâmetros de geração, não de `speed`. Verifique o `config.yaml`:
+
+**Chatterbox:** ajuste `exaggeration` no config:
+```yaml
+tts:
+  chatterbox:
+    exaggeration: 0.6     # aumente (0.3–0.8) se soar robótico
+    cfg_weight: 0.5
+```
+
+**XTTS v2:** a naturalidade vem dos parâmetros de geração, não de `speed`:
 ```yaml
 tts:
   speed: 1.0              # mantenha em 1.0
   generation:
-    temperature: 0.75     # aumente para 0.80–0.85 se ainda soar robótico
+    temperature: 0.65     # 0.5=robótico | 0.65=natural | 0.8+=melódico/cantado
     repetition_penalty: 1.1
 ```
 
-### Chiados ou hissing no áudio
-Pode ser ruído de fundo no arquivo `minha_voz.wav` ou `repetition_penalty` muito baixo. Tente:
+### Voz "cantando" / melodiosa demais (XTTS)
+`temperature` alto demais cria variação excessiva de entonação. Reduza:
 ```yaml
 generation:
-  repetition_penalty: 1.15
+  temperature: 0.60   # mais plano e consistente
 ```
-E verifique se `scipy` está instalado (necessário para o filtro high-pass e noise gate):
+Se persistir, troque para `provider: chatterbox` que não tem esse problema.
+
+### Cliques / "trunk trunk trunk" no áudio
+Era causado pelo noise gate com hard-switch a cada 20ms. **Já corrigido** — o noise gate foi removido. Se ainda ocorrer, verifique se está rodando a versão mais recente do `tts_narrator.py`.
+
+### Chiados ou hissing no áudio
+Pode ser ruído de fundo no arquivo `minha_voz.wav` que o modelo clona junto com a voz. O pipeline aplica subtração espectral conservadora na referência automaticamente. Se persistir:
+1. Grave uma referência mais limpa (ambiente silencioso, sem AC ou ventilador)
+2. Para XTTS: aumente `repetition_penalty: 1.15`
+3. Verifique se `scipy` está instalado:
 ```bash
-pip install scipy>=1.10.0
+.venv/bin/pip install scipy>=1.10.0
 ```
+
+### Voz feminina no vídeo / voz errada (Chatterbox)
+O arquivo de referência não está sendo encontrado. Verifique:
+```bash
+ls assets/voices/minha_voz.wav   # deve existir
+```
+E confirme no log de execução:
+```
+[ChatterboxNarrator] Modo clonagem ATIVO: .../assets/voices/minha_voz.wav
+```
+Se aparecer `INATIVO`, o arquivo não foi encontrado — verifique o caminho em `config.yaml → tts.voice_sample`.
+
+### Voz feminina / feminilização de voz masculina (XTTS v2)
+O XTTS v2 tem uma limitação conhecida de feminilizar vozes masculinas, especialmente quando o pré-processamento de áudio remove os harmônicos graves. Solução definitiva: migre para `provider: chatterbox`.
+
+Se precisar manter XTTS, causas comuns:
+- Arquivo `minha_voz.wav` em lugar errado → confirme o log `Modo clonagem ATIVO`
+- Pré-processamento agressivo removendo frequências graves — já corrigido (high-pass em 60 Hz, subtração espectral conservadora)
+
+### Stage directions sendo lidas em voz alta ("Ponto", "Pausa"...)
+O LLM pode inserir anotações técnicas na narração (`[Pausa]`, `(voz grave)`, `Ponto.`). O pipeline remove automaticamente no pré-processamento. Se ainda ocorrer, o LLM pode estar formatando de forma incomum — adicione ao prompt do `script_writer.py` mais exemplos do que não deve aparecer.
 
 ### `Retry.__init__() got an unexpected keyword argument 'method_whitelist'`
 Incompatibilidade entre `pytrends` e `urllib3 >= 2.0`. Já corrigido — não passe `retries` ao `TrendReq`.
@@ -638,18 +703,20 @@ O Google limita requisições muito rápidas. O pipeline já adiciona delay prog
 ### Reddit 403 Blocked
 Reddit bloqueou a API pública em 2023. **Removido do projeto** — substituído por Hacker News e NASA RSS.
 
-### Voz feminina no vídeo (Daisy Studious) / sem clonagem
+### XTTS v2: "Daisy Studious" sendo usada / sem clonagem
 O XTTS v2 está rodando sem clonagem de voz. "Daisy Studious" é uma falante **inglesa feminina** — o resultado em português fica com sotaque e prosódia ruins.
 
 Causas comuns:
 - Arquivo em lugar errado — o config espera `assets/voices/minha_voz.wav`
-- Arquivo muito curto — mínimo 5 segundos; abaixo disso o modelo não captura timbre suficiente
+- Arquivo muito curto — mínimo 5 segundos
 - Arquivo não existe ainda — grave sua voz (veja seção [Clonagem de voz](#clonagem-de-voz))
 
 Confirme que a clonagem está ativa procurando no log:
 ```
 [TTSNarrator] Modo clonagem ATIVO: .../assets/voices/minha_voz.wav
 ```
+
+> **Dica:** Se estiver usando `provider: chatterbox`, o log correspondente é `[ChatterboxNarrator] Modo clonagem ATIVO`.
 
 ### `TTS` não instala / erro de compilação
 Certifique-se de ter as ferramentas de build:

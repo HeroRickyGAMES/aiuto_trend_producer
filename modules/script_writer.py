@@ -136,7 +136,10 @@ Crie um roteiro COMPLETO seguindo EXATAMENTE este formato JSON:
 }}
 
 REGRAS IMPORTANTES:
-- A naracao deve ser natural, fluida e adequada para ser lida em voz alta
+- A naracao deve ser natural, fluida e adequada para ser lida em voz alta por um TTS
+- NUNCA coloque direções de cena, indicações de voz ou anotações técnicas na naracao
+- PROIBIDO na naracao: [Pausa], [PONTO], (voz grave), (música), [efeito], (PAUSA) ou similares
+- A naracao deve conter APENAS o texto que será falado, sem nenhuma anotação entre [] ou ()
 - Sem símbolos estranhos, emojis ou markdown na naracao
 - Total de palavras nas naracoes deve ser aproximadamente {total_palavras}
 - As palavras_chave_midia devem ser em INGLÊS para melhor resultado no Pexels

@@ -8,7 +8,11 @@ pytrends>=4.9.2
 # --- IA / Roteiro (Ollama roda separado, só precisamos de requests) ---
 requests>=2.31.0
 
-# --- TTS (herdado do ia_dubla_animes) ---
+# --- TTS ---
+# Chatterbox TTS (RECOMENDADO): Apache 2.0, melhor que ElevenLabs, preserva voz masculina, CPU ok
+chatterbox-tts>=0.1.0
+
+# Coqui XTTS v2 (alternativa — use provider: xtts em config.yaml)
 TTS>=0.22.0
 torch>=2.0.0       # CPU only — NÃO instale torch com CUDA se for CPU only
 torchaudio>=2.0.0  # >= 2.5 usa torchcodec por padrão; patch aplicado em tts_narrator.py

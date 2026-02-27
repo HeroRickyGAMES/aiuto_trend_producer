@@ -25,7 +25,6 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from modules.trend_hunter import TrendHunter, Trend
 from modules.script_writer import ScriptWriter
-from modules.tts_narrator import TTSNarrator
 from modules.media_fetcher import MediaFetcher
 from modules.video_editor import VideoEditor
 from modules.thumb_generator import ThumbGenerator
@@ -233,8 +232,15 @@ def pipeline_completo(
         # ══════════════════════════════════════════════════
         # PASSO 4: NARRAÇÃO TTS
         # ══════════════════════════════════════════════════
-        print(f"\n[PASSO 4/6] Gerando narração com Coqui TTS...")
-        narrator = TTSNarrator(config)
+        tts_provider = config.get("tts", {}).get("provider", "xtts").lower()
+        if tts_provider == "chatterbox":
+            from modules.chatterbox_narrator import ChatterboxNarrator
+            narrator = ChatterboxNarrator(config)
+            print(f"\n[PASSO 4/6] Gerando narração com Chatterbox TTS...")
+        else:
+            from modules.tts_narrator import TTSNarrator
+            narrator = TTSNarrator(config)
+            print(f"\n[PASSO 4/6] Gerando narração com Coqui XTTS v2...")
         pasta_audio = os.path.join(pasta_temp, "audio_cenas")
         audio_por_cena = narrator.sintetizar_por_cenas(roteiro.cenas, pasta_audio)
 
@@ -436,6 +442,7 @@ def main():
     config = carregar_config(args.config)
 
     if args.listar_modelos_tts:
+        from modules.tts_narrator import TTSNarrator
         narrator = TTSNarrator(config)
         narrator.listar_modelos_pt()
         return
