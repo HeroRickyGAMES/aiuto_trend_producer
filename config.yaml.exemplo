@@ -103,7 +103,10 @@ thumbnail:
 script:
   language: pt-BR
   style: "Educativo, dinâmico e envolvente. Tom de curiosidade científica. Direto ao ponto."
-  duration_target: 300    # duração alvo em segundos
+  # duration_target: duração alvo do roteiro em segundos (campo opcional).
+  # Prioridade: flag -d/--duracao > este campo > padrão interno (300s / 5 min).
+  # Exemplos: 60 (short/reels), 120 (2 min), 300 (5 min), 600 (10 min long-form)
+  duration_target: 300    # remova ou comente esta linha para usar o padrão (300s)
   sections:
     - gancho
     - contexto

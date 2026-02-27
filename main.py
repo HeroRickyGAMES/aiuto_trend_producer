@@ -3,9 +3,10 @@ main.py — IA Video Creator
 Pipeline completo: Trend → Roteiro → TTS → Mídia → Vídeo → Thumb → Metadados
 
 Uso:
-  python main.py                          # modo interativo — escolhe trend manualmente
-  python main.py -a                       # modo automático — processa TODAS as trends
-  python main.py --tema "Buraco Negro"    # pula busca, usa tema direto
+  python main.py                             # modo interativo — escolhe trend manualmente
+  python main.py -a                          # modo automático — processa TODAS as trends
+  python main.py --tema "Buraco Negro"       # pula busca, usa tema direto
+  python main.py --tema "Buraco Negro" -d 120  # roteiro de ~2 minutos (120s)
   python main.py --config meu_config.yaml
 """
 
@@ -121,16 +122,33 @@ def pipeline_completo(
     trend_objeto: Trend = None,
     auto_mode: bool = False,
     pasta_export_override: str = None,
+    duracao_seg: int = None,
 ):
     """
     Executa o pipeline completo de criação de vídeo.
 
     Parâmetros:
-        tema_forcado       — string de tema direto (cria Trend manualmente)
-        trend_objeto       — objeto Trend já pronto (usado pelo modo auto)
-        auto_mode          — se True, pula todas as interações humanas
+        tema_forcado          — string de tema direto (cria Trend manualmente)
+        trend_objeto          — objeto Trend já pronto (usado pelo modo auto)
+        auto_mode             — se True, pula todas as interações humanas
         pasta_export_override — substitui a pasta de export do config (usado no modo auto)
+        duracao_seg           — duração alvo em segundos. CLI (-d) > config.yaml > padrão do ScriptWriter
     """
+    # Resolve duração alvo: CLI (-d) tem prioridade; depois config.yaml; depois padrão do ScriptWriter
+    _duracao_config = config.get("script", {}).get("duration_target")
+    if duracao_seg is not None:
+        _fonte = "--duracao (CLI)"
+    elif _duracao_config is not None:
+        duracao_seg = int(_duracao_config)
+        _fonte = "config.yaml (script.duration_target)"
+    else:
+        _fonte = None
+
+    if duracao_seg is not None:
+        duracao_min = duracao_seg / 60.0
+        config.setdefault("roteiro", {})["duracao_alvo_minutos"] = duracao_min
+        config.setdefault("script", {})["duration_target"] = duracao_seg
+        log.info(f"Duração alvo: {duracao_seg}s ({duracao_min:.1f} min) — via {_fonte}")
     output_cfg = config.get("output", {})
     pasta_export = pasta_export_override or output_cfg.get("pasta", "export")
     prefixo = output_cfg.get("prefixo_arquivo", "video")
@@ -405,6 +423,10 @@ def main():
         help="Modo automático: processa TODAS as trends sem interação humana"
     )
     parser.add_argument(
+        "-d", "--duracao", type=int, default=None, metavar="SEGUNDOS",
+        help="Duração alvo do roteiro em segundos (ex: 120 = ~2 min). Sobrescreve config.yaml"
+    )
+    parser.add_argument(
         "--listar-modelos-tts", action="store_true",
         help="Lista modelos TTS disponíveis em portugues e sai"
     )
@@ -421,7 +443,7 @@ def main():
     if args.auto:
         pipeline_automatico(config)
     else:
-        pipeline_completo(config, tema_forcado=args.tema)
+        pipeline_completo(config, tema_forcado=args.tema, duracao_seg=args.duracao)
 
 
 if __name__ == "__main__":

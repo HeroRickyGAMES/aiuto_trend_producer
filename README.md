@@ -477,6 +477,37 @@ python3 main.py --tema "Buracos Negros Supermassivos"
 python3 main.py --tema "CRISPR e Edição Genética"
 ```
 
+### Definir duração do vídeo
+
+A duração alvo do roteiro pode ser definida de duas formas — **a flag `-d` sempre vence sobre o config**:
+
+**Via `config.yaml`** (duração padrão para todos os vídeos do canal):
+
+```yaml
+script:
+  duration_target: 300   # 300s = 5 minutos. Remova/comente para usar o padrão interno.
+```
+
+**Via linha de comando** (substituição pontual, sem alterar o config):
+
+```bash
+python3 main.py --tema "Buracos Negros" --duracao 120   # ~2 minutos (short/reels)
+python3 main.py --tema "Buracos Negros" -d 300           # ~5 minutos
+python3 main.py --tema "Buracos Negros" -d 600           # ~10 minutos (long-form)
+python3 main.py -d 180                                   # interativo + duração de 3 min
+python3 main.py -a -d 90                                 # modo auto + todos os vídeos curtos
+```
+
+**Prioridade de resolução:**
+
+| Fonte | Prioridade |
+|-------|-----------|
+| Flag `-d` / `--duracao` | Maior — sempre vence |
+| `script.duration_target` no `config.yaml` | Médio — usado se não há `-d` |
+| Padrão interno (300s / 5 min) | Menor — fallback quando nenhum dos dois está definido |
+
+> **Dica:** A duração é um alvo para o LLM. O vídeo final pode variar ±10–20% dependendo da velocidade da voz e do conteúdo gerado.
+
 ### Usar configuração alternativa (multi-canal)
 
 ```bash
@@ -496,6 +527,7 @@ python3 main.py --listar-modelos-tts
 |------|--------|-----------|
 | `--auto` | `-a` | Processa todas as trends automaticamente |
 | `--tema "X"` | — | Usa o tema X diretamente, sem buscar trends |
+| `--duracao N` | `-d N` | Define duração alvo do roteiro em segundos (sobrescreve config) |
 | `--config X.yaml` | — | Usa arquivo de configuração alternativo |
 | `--listar-modelos-tts` | — | Lista modelos TTS em PT disponíveis e sai |
 
