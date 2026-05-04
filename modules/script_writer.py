@@ -54,7 +54,7 @@ class ScriptWriter:
             "stream": True,
             "options": {
                 "temperature": self.temperature,
-                "num_predict": 3000
+                "num_predict": 6000
             }
         }
         log.info(f"Chamando Ollama ({self.model})...")
@@ -145,6 +145,9 @@ REGRAS IMPORTANTES:
 - Sem símbolos estranhos, emojis ou markdown na naracao
 - OBRIGATÓRIO: cada frase deve terminar com ponto final, exclamação ou interrogação
 - OBRIGATÓRIO: use vírgulas para separar orações longas — isso melhora a entonação do TTS
+- OBRIGATÓRIO: cada cena deve ter NO MÍNIMO {max(int(total_palavras / 5), 80)} palavras na naracao
+- OBRIGATÓRIO: cenas 2, 3 e 4 devem contar a história com detalhes, contexto e desenvolvimento real — não apenas introduzir o tema
+- O vídeo deve ter um arco narrativo: apresenta → aprofunda → surpreende → conclui
 - Total de palavras nas naracoes deve ser aproximadamente {total_palavras}
 - As palavras_chave_midia devem ser em INGLÊS para melhor resultado no Pexels
 - Responda APENAS com o JSON, sem texto extra antes ou depois"""

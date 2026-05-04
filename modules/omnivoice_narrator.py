@@ -213,7 +213,10 @@ class OmniVoiceNarrator:
         audio = compress_dynamic_range(audio, threshold=-22.0, ratio=2.2, attack=8.0, release=80.0)
         gain = -16.0 - audio.dBFS
         audio = audio.apply_gain(min(gain, 6.0))
-        audio = audio.fade_in(20).fade_out(80)
+        # Padding de silêncio para o fade não cortar o ataque da primeira/última sílaba
+        silencio = AudioSegment.silent(duration=80)
+        audio = silencio + audio + silencio
+        audio = audio.fade_in(60).fade_out(60)
         return audio
 
     # ──────────────────────────────────────────────────────────────────────

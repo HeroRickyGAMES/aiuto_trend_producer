@@ -90,13 +90,18 @@ video:
   resolution: [1920, 1080]
   fps: 30
   format: mp4
-  codec: libx264
   audio_codec: aac
-  bitrate: 4000k
   background_music_volume: 0.08   # 0 = sem música de fundo
   transition_duration: 0.5
   intro_duration: 2
   outro_duration: 3
+  # encoder: qual acelerador usar para renderizar
+  #   "auto"  — detecta automaticamente (nvenc → amf → qsv → cpu)
+  #   "nvenc" — força NVIDIA GPU (RTX/GTX)
+  #   "amf"   — força AMD GPU (RX series)
+  #   "qsv"   — força Intel Quick Sync
+  #   "cpu"   — força CPU (libx264 ultrafast)
+  encoder: auto
 
 # --- Thumbnail ---
 thumbnail:
