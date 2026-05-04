@@ -38,10 +38,13 @@ logging.basicConfig(
 log = logging.getLogger("Main")
 
 
-def banner():
-    print("""
+def banner(niche: str = ""):
+    titulo = f"IA VIDEO CREATOR — {niche}" if niche else "IA VIDEO CREATOR"
+    largura = 58
+    linha = titulo.center(largura)
+    print(f"""
 ╔══════════════════════════════════════════════════════════╗
-║           IA VIDEO CREATOR — Ciência & Tecnologia        ║
+║{linha}║
 ║   Trend → Roteiro → Voz → Mídia → Vídeo → Export        ║
 ╚══════════════════════════════════════════════════════════╝
 """)
@@ -180,7 +183,8 @@ def pipeline_completo(
                 sugestoes_busca=[tema_forcado, f"{tema_forcado} science"]
             )
         else:
-            print("\n[PASSO 1/6] Buscando trends de ciência e tecnologia...")
+            niche_label = config.get("channel", {}).get("niche", "tendências")
+            print(f"\n[PASSO 1/6] Buscando trends de {niche_label}...")
             hunter = TrendHunter(config)
             trend_escolhida = hunter.exibir_e_escolher()
             if not trend_escolhida:
@@ -419,7 +423,7 @@ def pipeline_automatico(config: dict):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="IA Video Creator — Ciência & Tecnologia"
+        description="IA Video Creator"
     )
     parser.add_argument(
         "--config", default="config.yaml",
@@ -444,8 +448,8 @@ def main():
     )
     args = parser.parse_args()
 
-    banner()
     config = carregar_config(args.config)
+    banner(config.get("channel", {}).get("niche", ""))
 
     if args.listar_modelos_tts:
         from modules.tts_narrator import TTSNarrator
