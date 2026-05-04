@@ -33,3 +33,4 @@ Pillow>=10.0.0
 # --- Utilitários ---
 PyYAML>=6.0
 python-dotenv>=1.0.0
+langdetect>=1.0.9  # detecção de idioma para tradução automática de fontes EN

@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(/home/heroricky/ia_video_creator/.venv/bin/python3:*)",
-      "Bash(.venv/bin/python3:*)"
+      "Bash(.venv/bin/python3:*)",
+      "WebFetch(domain:br.ign.com)",
+      "Bash(curl -sI \"https://br.ign.com/feed.xml\")",
+      "Bash(curl -sI \"https://br.ign.com/rss\")",
+      "Bash(curl -sI \"https://br.ign.com/feed\")"
     ]
   }
 }

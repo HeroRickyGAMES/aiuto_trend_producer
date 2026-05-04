@@ -80,10 +80,14 @@ trends:
     min_points: 50
   astronomia_rss:
     feeds:
-      - url: "https://www.nasa.gov/rss/dyn/breaking_news.rss"
-        nome: "NASA"
-      - url: "https://spaceflightnow.com/feed/"
-        nome: "SpaceFlightNow"
+      - url: "https://br.ign.com/feed.xml"
+        nome: "IGN Brasil"
+      - url: "https://kotaku.com/rss"
+        nome: "Kotaku"
+      - url: "https://www.gamespot.com/feeds/mashup/"
+        nome: "GameSpot"
+      - url: "https://www.thegamer.com/feed/"
+        nome: "TheGamer"
 
 # --- Vídeo ---
 video:

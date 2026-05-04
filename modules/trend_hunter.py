@@ -36,6 +36,50 @@ class TrendHunter:
         self.trends_cfg = config.get("trends", {})
         self.apis_cfg = config.get("apis", {})
         self.niche = config.get("channel", {}).get("niche", "tendências")
+        llm = config.get("llm", {})
+        self._ollama_url = llm.get("base_url", "http://localhost:11434") + "/api/generate"
+        self._ollama_model = llm.get("model", "gemma2")
+
+    def _traduzir_se_ingles(self, titulo: str, descricao: str) -> tuple[str, str]:
+        try:
+            from langdetect import detect
+            texto_amostra = f"{titulo} {descricao}"[:200]
+            if detect(texto_amostra) == "pt":
+                return titulo, descricao
+        except Exception:
+            return titulo, descricao
+
+        try:
+            partes = []
+            if titulo:
+                partes.append(f"Título: {titulo}")
+            if descricao:
+                partes.append(f"Descrição: {descricao}")
+            prompt = (
+                "Traduza para português brasileiro de forma natural e direta. "
+                "Retorne APENAS a tradução no mesmo formato (Título: ... / Descrição: ...), sem explicações.\n\n"
+                + "\n".join(partes)
+            )
+            resp = requests.post(
+                self._ollama_url,
+                json={"model": self._ollama_model, "prompt": prompt, "stream": False,
+                      "options": {"temperature": 0.1, "num_predict": 300}},
+                timeout=30
+            )
+            resp.raise_for_status()
+            resultado = resp.json().get("response", "").strip()
+
+            titulo_trad = titulo
+            desc_trad = descricao
+            for linha in resultado.splitlines():
+                if linha.lower().startswith("título:"):
+                    titulo_trad = linha.split(":", 1)[1].strip()
+                elif linha.lower().startswith("descrição:"):
+                    desc_trad = linha.split(":", 1)[1].strip()
+            return titulo_trad, desc_trad
+        except Exception as e:
+            log.warning(f"Tradução falhou: {e}")
+            return titulo, descricao
 
     def buscar_google_trends(self) -> List[Trend]:
         google_cfg = self.trends_cfg.get("google_trends", {})
@@ -116,13 +160,14 @@ class TrendHunter:
                     points = hit.get("points") or 0
                     if points < min_pts or not title:
                         continue
+                    title_trad, _ = self._traduzir_se_ingles(title, "")
                     trends.append(Trend(
-                        titulo=title[:100],
+                        titulo=title_trad[:100],
                         fonte="hackernews",
                         score=min(100, points / 10),
                         descricao=f"HN — {points} pontos | {query}",
                         url=hit.get("url", ""),
-                        sugestoes_busca=[" ".join(title.split()[:6])]
+                        sugestoes_busca=[" ".join(title_trad.split()[:6])]
                     ))
                 time.sleep(1)
             except Exception as e:
@@ -162,13 +207,14 @@ class TrendHunter:
                     desc_raw = (desc_el.text or "") if desc_el is not None else ""
                     desc = re.sub(r"<[^>]+>", "", desc_raw).strip()[:200]
                     link = (link_el.text or "") if link_el is not None else ""
+                    title_trad, desc_trad = self._traduzir_se_ingles(title, desc)
                     trends.append(Trend(
-                        titulo=title[:100],
+                        titulo=title_trad[:100],
                         fonte=f"rss/{fonte}",
                         score=max(10, 85 - i * 5),
-                        descricao=desc or title,
+                        descricao=desc_trad or title_trad,
                         url=link,
-                        sugestoes_busca=[" ".join(title.split()[:6])]
+                        sugestoes_busca=[" ".join(title_trad.split()[:6])]
                     ))
                 time.sleep(0.5)
             except Exception as e:
