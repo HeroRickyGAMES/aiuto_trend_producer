@@ -43,16 +43,29 @@ class OmniVoiceNarrator:
         self.tts_cfg = config.get("tts", {})
 
         ov_cfg = self.tts_cfg.get("omnivoice", {})
-        self.ref_text = ov_cfg.get("ref_text", "")
+        self.ref_text = ov_cfg.get("ref_text", "").strip()
+        self.use_default_voice = bool(ov_cfg.get("use_default_voice", False))
 
         voice_sample = self.tts_cfg.get("voice_sample", None)
         self.voice_sample = str(Path(voice_sample).resolve()) if voice_sample else None
-        self.modo_clonagem = bool(self.voice_sample and Path(self.voice_sample).is_file())
 
-        if self.modo_clonagem:
-            log.info(f"Modo clonagem ATIVO: {self.voice_sample}")
+        tem_arquivo = bool(self.voice_sample and Path(self.voice_sample).is_file())
+        tem_transcricao = bool(self.ref_text)
+
+        if self.use_default_voice:
+            self.modo_clonagem = False
+            log.info("Modo voz padrão FORÇADO (use_default_voice: true)")
         else:
-            log.info("Modo clonagem INATIVO — usando voz padrão do OmniVoice")
+            self.modo_clonagem = tem_arquivo and tem_transcricao
+            if tem_arquivo and not tem_transcricao:
+                log.warning(
+                    "voice_sample encontrado mas ref_text está vazio — clonagem DESATIVADA.\n"
+                    "  Preencha tts.omnivoice.ref_text no config.yaml com a transcrição do áudio."
+                )
+            if self.modo_clonagem:
+                log.info(f"Modo clonagem ATIVO: {self.voice_sample}")
+            else:
+                log.info("Modo clonagem INATIVO — usando voz padrão do OmniVoice")
 
         self._model = None
 
@@ -133,7 +146,7 @@ class OmniVoiceNarrator:
         texto = re.sub(r'\s+', ' ', texto)
         return texto.strip()
 
-    def _dividir_em_sentencas(self, texto: str, max_chars: int = 200) -> List[str]:
+    def _dividir_em_sentencas(self, texto: str, max_chars: int = 100) -> List[str]:
         partes = re.split(r'(?<=[.!?])\s+', texto)
         sentencas = []
         buffer = ""

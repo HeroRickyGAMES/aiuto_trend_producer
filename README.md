@@ -1,6 +1,6 @@
-# IA Video Creator — Ciência, Tecnologia & Astronomia
+# IA Video Creator — Aiuto Trend Producer
 
-Pipeline 100% local para criar vídeos de divulgação científica automaticamente.
+Pipeline 100% local para criar vídeos para YouTube automaticamente.
 Sem GPU obrigatória — funciona inteiramente na CPU.
 
 ```
@@ -358,40 +358,64 @@ script:
 
 ## Clonagem de voz
 
-O Chatterbox TTS (e o XTTS v2 como alternativa) podem narrar com a **sua voz** a partir de uma gravação de referência.
+O OmniVoice (e o XTTS v2 como alternativa) podem narrar com a **sua voz** a partir de uma gravação de referência curta — sem treinamento, zero-shot.
 
 ### Requisitos da gravação
 
-- Duração: **mínimo 5 segundos** — arquivos longos também funcionam (ambos os modelos usam até ~30s)
+- Duração: **10–30 segundos** — abaixo de 10s funciona mas a qualidade cai
 - Formato: WAV, MP3 ou FLAC
-- Canais: mono ou estéreo (o pipeline converte automaticamente)
-- Sample rate: qualquer (convertido automaticamente)
-- Conteúdo: fale qualquer coisa naturalmente, em português — não precisa ser o texto do vídeo
-- Qualidade: microfone de headset já é suficiente; evite música de fundo ou eco
-- Localização: o arquivo **deve estar em `assets/voices/minha_voz.wav`** — qualquer outro caminho exige atualizar `voice_sample` no `config.yaml`
+- Canais: mono ou estéreo
+- Conteúdo: fale **sem pausas longas**, em voz natural e contínua — pausas e hesitações são copiadas junto com o timbre
+- Qualidade: microfone de headset já é suficiente; ambiente silencioso (sem AC, ventilador ou música)
+- Localização: o arquivo deve estar em `assets/voices/minha_voz.mp3` — ou ajuste `voice_sample` no `config.yaml`
 
-### Dica de gravação
+### Frase de exemplo para gravar
 
-Para melhor resultado, grave lendo em voz natural (não forçada) algo como:
-> "A ciência é a linguagem do universo. Cada descoberta nos aproxima da verdade sobre nossa existência no cosmos e nos lembra que somos feitos de poeira de estrelas."
+Grave a frase abaixo em voz natural, sem pressa e sem pausas longas. Ela cobre vogais, consoantes e entonação variada do português brasileiro — ideal para calibrar o modelo:
 
-### Como adicionar
+> "Olá, pessoal! Aqui começa mais um vídeo incrível. Hoje vamos falar sobre um assunto que está movimentando o mundo inteiro. Fica comigo até o final porque tem muita novidade por vir. Não esquece de curtir e se inscrever no canal para não perder nenhum conteúdo."
+
+Você pode usar qualquer texto — o importante é falar de forma contínua e natural, como se estivesse gravando um vídeo de verdade.
+
+### Configurar ref_text (obrigatório para clonagem)
+
+Após gravar, informe no `config.yaml` o que você disse no áudio:
+
+```yaml
+tts:
+  voice_sample: assets/voices/minha_voz.mp3
+  omnivoice:
+    ref_text: "Olá, pessoal! Aqui começa mais um vídeo incrível..."  # transcrição exata
+    use_default_voice: false
+```
+
+> **Por que o `ref_text` é obrigatório?** O OmniVoice é um modelo zero-shot que usa o áudio apenas como referência de timbre. Sem a transcrição, o modelo não sabe o que está sendo dito no áudio e gera fala aleatória (gibberish).
+
+### Testar com voz padrão
+
+Para verificar se o problema é na sua gravação ou no modelo em si, ative a voz padrão temporariamente:
+
+```yaml
+omnivoice:
+  use_default_voice: true   # ignora voice_sample, usa voz padrão do OmniVoice
+```
+
+### Como adicionar o arquivo de voz
 
 ```bash
 # Opção 1 — gravar pelo terminal (necessita sox)
-# Linux/WSL:
-sudo apt install sox
-rec -r 22050 -c 1 assets/voices/minha_voz.wav trim 0 10
+sudo apt install sox                                        # Ubuntu/Debian/WSL
+rec -c 1 assets/voices/minha_voz.wav trim 0 25            # grava 25 segundos
 
 # CachyOS/Arch:
 sudo pacman -S sox
-rec -r 22050 -c 1 assets/voices/minha_voz.wav trim 0 10
+rec -c 1 assets/voices/minha_voz.wav trim 0 25
 
 # Opção 2 — converter uma gravação existente
-ffmpeg -i gravacao.mp3 -ar 22050 -ac 1 assets/voices/minha_voz.wav
+ffmpeg -i gravacao.mp3 assets/voices/minha_voz.mp3
 ```
 
-O pipeline detecta automaticamente se o arquivo existe. Sem ele, usa a voz padrão do modelo.
+O pipeline detecta automaticamente se o arquivo existe e o `ref_text` está preenchido. Sem um dos dois, usa a voz padrão do modelo.
 
 ---
 

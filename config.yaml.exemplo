@@ -26,6 +26,7 @@ tts:
   # ── OmniVoice ───────────────────────────────────────────────────────────
   omnivoice:
     ref_text: ""             # transcrição do voice_sample (necessário para clonagem)
+    use_default_voice: false  # true = ignora voice_sample e usa voz padrão do OmniVoice (para teste)
 
   # ── XTTS v2 (usado apenas se provider: xtts) ────────────────────────────
   model: tts_models/multilingual/multi-dataset/xtts_v2

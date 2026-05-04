@@ -128,12 +128,13 @@ class VideoEditor:
             audio_path = audio_por_cena[i] if i < len(audio_por_cena) else None
             midia = midia_por_cena.get(cena.numero, {})
 
-            # Duração da cena baseada no áudio
+            # Carrega o áudio primeiro para usar sua duração exata (evita cortes)
+            audio_cena = None
             if audio_path and os.path.exists(audio_path):
-                duracao_cena = self._calcular_duracao_audio(audio_path)
+                audio_cena = mp["AudioFileClip"](audio_path)
+                duracao_cena = audio_cena.duration
             else:
                 duracao_cena = self.duracao_por_imagem * 3
-                audio_path = None
 
             log.info(f"Cena {cena.numero} '{cena.titulo}': {duracao_cena:.1f}s")
 
@@ -170,8 +171,7 @@ class VideoEditor:
             clip_cena = clip_cena.subclipped(0, duracao_cena)
 
             # Adiciona áudio da narração
-            if audio_path and os.path.exists(audio_path):
-                audio_cena = mp["AudioFileClip"](audio_path)
+            if audio_cena is not None:
                 clip_cena = clip_cena.with_audio(audio_cena)
 
             # Fade in/out na cena

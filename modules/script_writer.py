@@ -85,11 +85,13 @@ class ScriptWriter:
         palavras_por_minuto = 130
         total_palavras = self.duracao_min * palavras_por_minuto
 
-        return f"""Você é um roteirista especialista em vídeos educativos de ciência e tecnologia para YouTube.
+        niche = self.config.get("channel", {}).get("niche", "conteúdo para YouTube")
+
+        return f"""Você é um roteirista especialista em vídeos de {niche} para YouTube.
 
 TEMA DO VÍDEO: {tema}
 CONTEXTO ADICIONAL: {contexto}
-CANAL: {canal_nome if (canal_nome := self.canal) else "Ciência & Tech"}
+CANAL: {canal_nome if (canal_nome := self.canal) else niche}
 ESTILO: {self.estilo}
 DURAÇÃO ALVO: {self.duracao_min} minutos ({total_palavras} palavras aproximadamente)
 IDIOMA: Português brasileiro
@@ -111,26 +113,26 @@ Crie um roteiro COMPLETO seguindo EXATAMENTE este formato JSON:
     {{
       "numero": 2,
       "titulo": "Contexto e Importância",
-      "naracao": "Texto falado aqui...",
+      "naracao": "Texto falado aqui.",
       "palavras_chave_midia": ["relevant image search term"]
     }},
     {{
       "numero": 3,
-      "titulo": "Como Funciona",
-      "naracao": "Texto falado aqui...",
-      "palavras_chave_midia": ["technology visualization", "science lab"]
+      "titulo": "Desenvolvimento",
+      "naracao": "Texto falado aqui.",
+      "palavras_chave_midia": ["relevant visual keyword"]
     }},
     {{
       "numero": 4,
-      "titulo": "Impacto e Futuro",
-      "naracao": "Texto falado aqui...",
-      "palavras_chave_midia": ["future technology", "innovation"]
+      "titulo": "Impacto e Novidades",
+      "naracao": "Texto falado aqui.",
+      "palavras_chave_midia": ["relevant visual keyword"]
     }},
     {{
       "numero": 5,
       "titulo": "Conclusão",
       "naracao": "Finalizacao com call-to-action para curtir e se inscrever no canal {self.canal}.",
-      "palavras_chave_midia": ["science conclusion", "discovery"]
+      "palavras_chave_midia": ["celebration", "thumbs up"]
     }}
   ]
 }}
@@ -141,6 +143,8 @@ REGRAS IMPORTANTES:
 - PROIBIDO na naracao: [Pausa], [PONTO], (voz grave), (música), [efeito], (PAUSA) ou similares
 - A naracao deve conter APENAS o texto que será falado, sem nenhuma anotação entre [] ou ()
 - Sem símbolos estranhos, emojis ou markdown na naracao
+- OBRIGATÓRIO: cada frase deve terminar com ponto final, exclamação ou interrogação
+- OBRIGATÓRIO: use vírgulas para separar orações longas — isso melhora a entonação do TTS
 - Total de palavras nas naracoes deve ser aproximadamente {total_palavras}
 - As palavras_chave_midia devem ser em INGLÊS para melhor resultado no Pexels
 - Responda APENAS com o JSON, sem texto extra antes ou depois"""
