@@ -233,10 +233,10 @@ def pipeline_completo(
         # PASSO 4: NARRAÇÃO TTS
         # ══════════════════════════════════════════════════
         tts_provider = config.get("tts", {}).get("provider", "xtts").lower()
-        if tts_provider == "chatterbox":
-            from modules.chatterbox_narrator import ChatterboxNarrator
-            narrator = ChatterboxNarrator(config)
-            print(f"\n[PASSO 4/6] Gerando narração com Chatterbox TTS...")
+        if tts_provider == "omnivoice":
+            from modules.omnivoice_narrator import OmniVoiceNarrator
+            narrator = OmniVoiceNarrator(config)
+            print(f"\n[PASSO 4/6] Gerando narração com OmniVoice TTS...")
         else:
             from modules.tts_narrator import TTSNarrator
             narrator = TTSNarrator(config)

@@ -14,22 +14,18 @@ llm:
 # --- TTS ---
 tts:
   # provider: qual motor TTS usar
-  #   "chatterbox" — Chatterbox TTS Multilingual (padrão): Apache 2.0, qualidade superior,
-  #                  suporte nativo a pt-BR via ChatterboxMultilingualTTS (language_id="pt")
-  #                  Idiomas: ar, da, de, el, en, es, fi, fr, he, hi, it, ja, ko, ms,
-  #                           nl, no, pl, pt, ru, sv, sw, tr, zh
-  #   "xtts"       — Coqui XTTS v2: alternativa robusta, suporte nativo a pt-BR
-  provider: chatterbox
+  #   "omnivoice"  — OmniVoice (k2-fsa): 600+ idiomas, clonagem zero-shot estado-da-arte
+  #   "xtts"       — Coqui XTTS v2: alternativa robusta, suporte nativo a pt-BR (Python <=3.12)
+  provider: omnivoice
 
-  # Áudio de referência para clonagem (usado por ambos os providers)
-  # Mínimo 5s, sem música de fundo. Arquivos longos OK (Chatterbox usa até 30s).
+  # Áudio de referência para clonagem (ativa automaticamente se o arquivo existir)
+  # Mínimo 5s, sem música de fundo.
   voice_sample: assets/voices/minha_voz.wav
   speed: 1.0
 
-  # ── Chatterbox TTS ──────────────────────────────────────────────────────
-  chatterbox:
-    exaggeration: 0.5      # intensidade da clonagem: 0.3=sutil | 0.5=natural | 0.7=forte
-    cfg_weight: 0.5        # classifier-free guidance: 0.5 = equilíbrio naturalidade/fidelidade
+  # ── OmniVoice ───────────────────────────────────────────────────────────
+  omnivoice:
+    ref_text: ""             # transcrição do voice_sample (necessário para clonagem)
 
   # ── XTTS v2 (usado apenas se provider: xtts) ────────────────────────────
   model: tts_models/multilingual/multi-dataset/xtts_v2

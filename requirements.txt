@@ -9,14 +9,11 @@ pytrends>=4.9.2
 requests>=2.31.0
 
 # --- TTS ---
-# Chatterbox TTS (RECOMENDADO): Apache 2.0, melhor que ElevenLabs, preserva voz masculina, CPU ok
-chatterbox-tts>=0.1.0
+# OmniVoice (RECOMENDADO): 600+ idiomas, clonagem zero-shot, CPU ok
+omnivoice
 
-# Coqui XTTS v2 (alternativa — use provider: xtts em config.yaml)
-TTS>=0.22.0
 torch>=2.0.0       # CPU only — NÃO instale torch com CUDA se for CPU only
-torchaudio>=2.0.0  # >= 2.5 usa torchcodec por padrão; patch aplicado em tts_narrator.py
-transformers>=4.57.0,<5.0.0  # <4.57 tem MRO error (GPT2InferenceModel); >=4.57 OK + patch DynamicCache em tts_narrator.py
+torchaudio>=2.0.0
 
 # --- Áudio ---
 pydub>=0.25.1
