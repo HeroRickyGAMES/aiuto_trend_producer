@@ -47,15 +47,13 @@ class ScriptWriter:
 
     def _chamar_ollama(self, prompt: str) -> str:
         """Faz chamada à API do Ollama com streaming para evitar timeout."""
-        url = f"{self.base_url}/api/generate"
+        url = f"{self.base_url}/v1/chat/completions"
         payload = {
             "model": self.model,
-            "prompt": prompt,
+            "messages": [{"role": "user", "content": prompt}],
             "stream": True,
-            "options": {
-                "temperature": self.temperature,
-                "num_predict": 6000
-            }
+            "temperature": self.temperature,
+            "max_tokens": 6000,
         }
         log.info(f"Chamando Ollama ({self.model})...")
         try:
@@ -65,12 +63,16 @@ class ScriptWriter:
             for linha in resp.iter_lines():
                 if not linha:
                     continue
+                txt = linha.decode("utf-8") if isinstance(linha, bytes) else linha
+                if txt.startswith("data: "):
+                    txt = txt[6:]
+                if txt.strip() == "[DONE]":
+                    break
                 try:
-                    chunk = json.loads(linha)
-                    partes.append(chunk.get("response", ""))
-                    if chunk.get("done"):
-                        break
-                except json.JSONDecodeError:
+                    chunk = json.loads(txt)
+                    delta = chunk["choices"][0].get("delta", {})
+                    partes.append(delta.get("content", ""))
+                except (json.JSONDecodeError, KeyError, IndexError):
                     continue
             return "".join(partes).strip()
         except requests.exceptions.ConnectionError:

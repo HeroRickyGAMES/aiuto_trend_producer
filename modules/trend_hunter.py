@@ -37,7 +37,7 @@ class TrendHunter:
         self.apis_cfg = config.get("apis", {})
         self.niche = config.get("channel", {}).get("niche", "tendências")
         llm = config.get("llm", {})
-        self._ollama_url = llm.get("base_url", "http://localhost:11434") + "/api/generate"
+        self._ollama_url = llm.get("base_url", "http://localhost:11434") + "/v1/chat/completions"
         self._ollama_model = llm.get("model", "gemma2")
 
     def _traduzir_se_ingles(self, titulo: str, descricao: str) -> tuple[str, str]:
@@ -56,18 +56,21 @@ class TrendHunter:
             if descricao:
                 partes.append(f"Descrição: {descricao}")
             prompt = (
+                "/no_think\n"
                 "Traduza para português brasileiro de forma natural e direta. "
                 "Retorne APENAS a tradução no mesmo formato (Título: ... / Descrição: ...), sem explicações.\n\n"
                 + "\n".join(partes)
             )
             resp = requests.post(
                 self._ollama_url,
-                json={"model": self._ollama_model, "prompt": prompt, "stream": False,
-                      "options": {"temperature": 0.1, "num_predict": 300}},
+                json={"model": self._ollama_model,
+                      "messages": [{"role": "user", "content": prompt}],
+                      "stream": False, "temperature": 0.1, "max_tokens": 300,
+                      "chat_template_kwargs": {"enable_thinking": False}},
                 timeout=30
             )
             resp.raise_for_status()
-            resultado = resp.json().get("response", "").strip()
+            resultado = resp.json()["choices"][0]["message"]["content"].strip()
 
             titulo_trad = titulo
             desc_trad = descricao
