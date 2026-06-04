@@ -146,7 +146,7 @@ class OmniVoiceNarrator:
         texto = re.sub(r'\s+', ' ', texto)
         return texto.strip()
 
-    def _dividir_em_sentencas(self, texto: str, max_chars: int = 100) -> List[str]:
+    def _dividir_em_sentencas(self, texto: str, max_chars: int = 220) -> List[str]:
         partes = re.split(r'(?<=[.!?])\s+', texto)
         sentencas = []
         buffer = ""
@@ -237,7 +237,7 @@ class OmniVoiceNarrator:
 
         segmentos: List[tuple] = []
         for i, sent in enumerate(sentencas):
-            log.info(f"  [{i+1}/{len(sentencas)}] {sent[:70]}{'…' if len(sent) > 70 else ''}")
+            log.info(f"  [{i+1}/{len(sentencas)}] {sent}")
             with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
                 tmp_path = tmp.name
             try:

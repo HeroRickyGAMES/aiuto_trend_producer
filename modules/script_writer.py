@@ -71,7 +71,7 @@ class ScriptWriter:
                 try:
                     chunk = json.loads(txt)
                     delta = chunk["choices"][0].get("delta", {})
-                    partes.append(delta.get("content", ""))
+                    partes.append(delta.get("content") or "")
                 except (json.JSONDecodeError, KeyError, IndexError):
                     continue
             return "".join(partes).strip()
