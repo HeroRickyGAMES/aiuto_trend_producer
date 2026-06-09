@@ -59,6 +59,9 @@ trends:
   # traduzir_titulos: traduzir título/descrição via LLM (GPU) antes de gerar.
   # false (recomendado) = busca conteúdo em inglês e deixa o roteiro final converter p/ PT-BR.
   traduzir_titulos: false
+  # leitor_proxy: usa o Jina Reader (r.jina.ai) quando o site bloqueia o fetch direto (403/anti-bot).
+  # true (recomendado) = recupera artigos de sites protegidos (GameSpot, UnrealEngine, etc.).
+  leitor_proxy: true
   google_trends:
     enabled: true
     geo: BR

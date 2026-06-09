@@ -19,6 +19,19 @@ from typing import List, Optional
 logging.basicConfig(level=logging.INFO, format="[Aiuto Trend Producer] %(message)s")
 log = logging.getLogger(__name__)
 
+# Headers de navegador real — muitos sites (NYT, GameSpot, UnrealEngine...) devolvem
+# 403 para User-Agents que parecem bot. Imitar um Chrome recente recupera boa parte.
+BROWSER_HEADERS = {
+    "User-Agent": ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
+                   "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"),
+    "Accept": ("text/html,application/xhtml+xml,application/xml;q=0.9,"
+               "image/avif,image/webp,*/*;q=0.8"),
+    "Accept-Language": "en-US,en;q=0.9,pt-BR;q=0.8",
+    "Accept-Encoding": "gzip, deflate",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
+
 
 @dataclass
 class Trend:
@@ -38,6 +51,8 @@ class TrendHunter:
         self.niche = config.get("channel", {}).get("niche", "tendências")
         # Tradução do título via LLM (GPU) — desligada por padrão: o roteiro final já sai em PT-BR
         self.traduzir = self.trends_cfg.get("traduzir_titulos", False)
+        # Leitor via proxy (Jina Reader) p/ contornar anti-bot/paywall quando o fetch direto falha
+        self.leitor_proxy = self.trends_cfg.get("leitor_proxy", True)
         llm = config.get("llm", {})
         self._ollama_url = llm.get("base_url", "http://localhost:11434") + "/v1/chat/completions"
         self._ollama_model = llm.get("model", "gemma2")
@@ -99,6 +114,65 @@ class TrendHunter:
         texto = re.sub(r"\s+", " ", texto).strip()
         return texto[:limite]
 
+    def _ler_artigo(self, url: str) -> str:
+        """
+        Lê o texto de um artigo em camadas:
+        1. fetch direto com headers de navegador (rápido, serve p/ sites abertos);
+        2. se bloquear (403/anti-bot), tenta o Jina Reader (renderiza server-side).
+        Retorna texto limpo ou "" (aí o roteiro usa o contexto alternativo do HN/RSS).
+        """
+        txt = self._fetch_direto(url)
+        if txt:
+            return txt
+        if self.leitor_proxy:
+            return self._fetch_jina(url)
+        return ""
+
+    def _fetch_direto(self, url: str) -> str:
+        """Fetch direto com headers de navegador. Tenta 2x no timeout."""
+        for tentativa in range(2):
+            try:
+                resp = requests.get(url, headers=BROWSER_HEADERS, timeout=15)
+                resp.raise_for_status()
+                ctype = resp.headers.get("content-type", "")
+                if "html" in ctype or "text" in ctype or not ctype:
+                    txt = self._extrair_texto_html(resp.text, 3500)
+                    if len(txt) > 200:
+                        return txt
+                return ""
+            except requests.Timeout:
+                if tentativa == 0:
+                    continue
+                log.warning(f"Timeout no fetch direto: {url}")
+            except requests.HTTPError as e:
+                code = e.response.status_code if e.response is not None else "?"
+                log.info(f"Fetch direto bloqueado ({code}) — tentando leitor proxy: {url}")
+            except Exception as e:
+                log.warning(f"Falha no fetch direto {url}: {e}")
+            break
+        return ""
+
+    def _fetch_jina(self, url: str) -> str:
+        """Fallback via Jina Reader (https://r.jina.ai) — contorna anti-bot/Cloudflare."""
+        try:
+            resp = requests.get(
+                "https://r.jina.ai/" + url,
+                headers={"User-Agent": BROWSER_HEADERS["User-Agent"], "X-Return-Format": "text"},
+                timeout=25,
+            )
+            resp.raise_for_status()
+            body = resp.text or ""
+            # Remove o preâmbulo de metadados do Jina (Title:/URL Source:/...) e markdown de links/imagens
+            body = re.sub(r"(?m)^(Title|URL Source|Markdown Content|Published Time|Image \d+):.*$", " ", body)
+            body = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", body)
+            body = re.sub(r"\s+", " ", body).strip()
+            if len(body) > 200:
+                log.info(f"Artigo recuperado via leitor proxy: {url}")
+                return body[:3500]
+        except Exception as e:
+            log.warning(f"Leitor proxy falhou ({url}): {e}")
+        return ""
+
     def _buscar_conteudo(self, url: str = "", object_id: str = "") -> str:
         """
         Lê o conteúdo REAL para enriquecer o roteiro:
@@ -107,19 +181,11 @@ class TrendHunter:
         Retorna string concatenada (pode ser longa) ou vazia se nada for obtido.
         """
         partes = []
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; ia_video_creator/1.0)"}
 
         if url and url.startswith("http"):
-            try:
-                resp = requests.get(url, headers=headers, timeout=12)
-                resp.raise_for_status()
-                ctype = resp.headers.get("content-type", "")
-                if "html" in ctype or "text" in ctype or not ctype:
-                    txt = self._extrair_texto_html(resp.text, 3500)
-                    if len(txt) > 200:
-                        partes.append(f"CONTEÚDO DO ARTIGO:\n{txt}")
-            except Exception as e:
-                log.warning(f"Falha ao ler artigo {url}: {e}")
+            txt = self._ler_artigo(url)
+            if txt:
+                partes.append(f"CONTEÚDO DO ARTIGO:\n{txt}")
 
         if object_id:
             try:
