@@ -23,24 +23,40 @@ class Metadados:
     fonte_trend: str
     data_criacao: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d %H:%M"))
     duracao_estimada_min: float = 0.0
+    fonte_url: str = ""
 
 
 class MetadataGen:
     def __init__(self, config: dict):
         self.config = config
-        self.canal = config.get("roteiro", {}).get("canal_nome", "Meu Canal")
+        self.channel_cfg = config.get("channel", {})
+        # Nome do canal vem de channel.name (corrige o antigo default "Meu Canal")
+        self.canal = self.channel_cfg.get("name") or config.get("roteiro", {}).get("canal_nome", "Meu Canal")
+        self.hashtags_base = self.channel_cfg.get("hashtags_base", [])
 
     def _formatar_descricao(self, meta: Metadados) -> str:
         """Formata a descrição completa para YouTube."""
         tags_str = " ".join(f"#{t.replace(' ', '')}" for t in meta.tags[:10])
+        base_str = " ".join(self.hashtags_base)
+
+        # Créditos da fonte — evita problemas de direitos autorais
+        creditos = ""
+        if meta.fonte_url:
+            creditos = f"""
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📄 FONTE / CRÉDITOS
+Conteúdo baseado no material original disponível em:
+{meta.fonte_url}
+Todos os créditos do conteúdo-fonte vão ao autor original. Vídeo produzido com apoio de inteligência artificial para fins informativos e educativos.
+"""
+
         desc = f"""{meta.descricao}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📌 Assunto: {meta.tema}
-📅 Publicado em: {meta.data_criacao.split()[0]}
 ⏱️ Duração: ~{meta.duracao_estimada_min:.0f} minutos
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+{creditos}
 🔔 INSCREVA-SE no canal {self.canal} e ative o sininho!
 👍 Deixe seu LIKE se o vídeo foi útil!
 💬 Comente sua opinião sobre o assunto!
@@ -49,7 +65,7 @@ class MetadataGen:
 
 {tags_str}
 
-#CienciaTecnologia #Ciencia #Tecnologia #Educacao"""
+{base_str}""".rstrip()
         return desc
 
     def salvar(

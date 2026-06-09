@@ -56,6 +56,9 @@ apis: {}   # sem APIs adicionais por enquanto
 # --- Trends ---
 trends:
   max_trends: 15
+  # traduzir_titulos: traduzir título/descrição via LLM (GPU) antes de gerar.
+  # false (recomendado) = busca conteúdo em inglês e deixa o roteiro final converter p/ PT-BR.
+  traduzir_titulos: false
   google_trends:
     enabled: true
     geo: BR

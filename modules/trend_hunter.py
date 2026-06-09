@@ -36,11 +36,16 @@ class TrendHunter:
         self.trends_cfg = config.get("trends", {})
         self.apis_cfg = config.get("apis", {})
         self.niche = config.get("channel", {}).get("niche", "tendências")
+        # Tradução do título via LLM (GPU) — desligada por padrão: o roteiro final já sai em PT-BR
+        self.traduzir = self.trends_cfg.get("traduzir_titulos", False)
         llm = config.get("llm", {})
         self._ollama_url = llm.get("base_url", "http://localhost:11434") + "/v1/chat/completions"
         self._ollama_model = llm.get("model", "gemma2")
 
     def _traduzir_se_ingles(self, titulo: str, descricao: str) -> tuple[str, str]:
+        # Pula a tradução por GPU quando desativada (padrão) — evita processamento inútil
+        if not self.traduzir:
+            return titulo, descricao
         try:
             from langdetect import detect
             texto_amostra = f"{titulo} {descricao}"[:200]

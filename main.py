@@ -290,7 +290,8 @@ def pipeline_completo(
             thumb_texto=roteiro.thumb_texto,
             tema=trend_escolhida.titulo,
             fonte_trend=trend_escolhida.fonte,
-            duracao_estimada_min=duracao_min
+            duracao_estimada_min=duracao_min,
+            fonte_url=trend_escolhida.url
         )
         meta_gen = MetadataGen(config)
         arquivos_meta = meta_gen.salvar(meta, pasta_export, prefixo + f"_{ts}")
