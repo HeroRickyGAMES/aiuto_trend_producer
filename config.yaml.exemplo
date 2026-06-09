@@ -8,10 +8,10 @@ llm:
   provider: ollama
   model: gemma2            # modelos disponíveis: gemma2, llama3.2, mistral, phi3
   base_url: http://localhost:11434
-  temperature: 0.7
+  temperature: 0.5                  # menor = mais fiel ao artigo e menos alucinação (0.4-0.5 p/ roteiro factual)
   max_tokens: 2000                  # usado em tarefas curtas (ex: tradução)
   timeout: null                     # null = SEM limite de tempo: deixa a IA aprofundar o roteiro à vontade
-  script_max_tokens: 8000           # teto de tokens do roteiro (maior = roteiro mais longo/profundo)
+  script_max_tokens: 3000           # right-size: profundo p/ até ~10 min, sem dar corda p/ divagar no fim
 
 # --- TTS ---
 tts:
