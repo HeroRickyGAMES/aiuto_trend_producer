@@ -121,15 +121,20 @@ class TrendHunter:
         2. se bloquear (403/anti-bot), tenta o Jina Reader (renderiza server-side).
         Retorna texto limpo ou "" (aí o roteiro usa o contexto alternativo do HN/RSS).
         """
-        txt = self._fetch_direto(url)
+        txt, morto = self._fetch_direto(url)
         if txt:
             return txt
+        if morto:
+            return ""  # link morto (404/410): proxy não recupera o que não existe mais
         if self.leitor_proxy:
             return self._fetch_jina(url)
         return ""
 
-    def _fetch_direto(self, url: str) -> str:
-        """Fetch direto com headers de navegador. Tenta 2x no timeout."""
+    def _fetch_direto(self, url: str):
+        """
+        Fetch direto com headers de navegador. Tenta 2x no timeout.
+        Retorna (texto, link_morto): link_morto=True em 404/410 (descartável, nem tenta proxy).
+        """
         for tentativa in range(2):
             try:
                 resp = requests.get(url, headers=BROWSER_HEADERS, timeout=15)
@@ -138,19 +143,22 @@ class TrendHunter:
                 if "html" in ctype or "text" in ctype or not ctype:
                     txt = self._extrair_texto_html(resp.text, 3500)
                     if len(txt) > 200:
-                        return txt
-                return ""
+                        return txt, False
+                return "", False
             except requests.Timeout:
                 if tentativa == 0:
                     continue
                 log.warning(f"Timeout no fetch direto: {url}")
             except requests.HTTPError as e:
-                code = e.response.status_code if e.response is not None else "?"
+                code = e.response.status_code if e.response is not None else 0
+                if code in (404, 410):
+                    log.info(f"Link morto ({code}): {url}")
+                    return "", True
                 log.info(f"Fetch direto bloqueado ({code}) — tentando leitor proxy: {url}")
             except Exception as e:
                 log.warning(f"Falha no fetch direto {url}: {e}")
             break
-        return ""
+        return "", False
 
     def _fetch_jina(self, url: str) -> str:
         """Fallback via Jina Reader (https://r.jina.ai) — contorna anti-bot/Cloudflare."""
@@ -296,9 +304,10 @@ class TrendHunter:
                     obj_id = str(hit.get("objectID", ""))
                     log.info(f"Lendo conteúdo real: {title[:60]}...")
                     conteudo = self._buscar_conteudo(url_artigo, obj_id)
-                    descricao = f"HN — {points} pontos | {query}"
-                    if conteudo:
-                        descricao = f"{descricao}\n\n{conteudo}"
+                    if not conteudo:
+                        log.info(f"Sem conteúdo (link morto/bloqueado e sem discussão) — fora da lista: {title[:50]}")
+                        continue
+                    descricao = f"HN — {points} pontos | {query}\n\n{conteudo}"
                     trends.append(Trend(
                         titulo=title_trad[:100],
                         fonte="hackernews",
@@ -347,6 +356,10 @@ class TrendHunter:
                     link = (link_el.text or "") if link_el is not None else ""
                     title_trad, desc_trad = self._traduzir_se_ingles(title, desc)
                     conteudo = self._buscar_conteudo(link) if link else ""
+                    # Sem artigo E sem um resumo aproveitável do feed = vídeo raso → fora da lista
+                    if not conteudo and len((desc_trad or "").strip()) < 40:
+                        log.info(f"Sem conteúdo aproveitável — fora da lista: {title[:50]}")
+                        continue
                     descricao_full = desc_trad or title_trad
                     if conteudo:
                         descricao_full = f"{descricao_full}\n\n{conteudo}"
