@@ -201,21 +201,32 @@ class VideoEditor:
 
             clips_cena = []
 
-            if videos_disponiveis:
-                # Usa vídeo como base
-                clip_base = self._criar_clip_video(mp, videos_disponiveis[0], duracao_cena)
-                if clip_base:
-                    clips_cena.append(clip_base)
+            # Intercala vídeos e imagens para evitar frames repetidos (nada de loopar 1 clipe a cena toda)
+            fontes = []
+            max_v = len(videos_disponiveis)
+            max_i = len(imagens_disponiveis)
+            iv = ii = 0
+            while iv < max_v or ii < max_i:
+                if iv < max_v:
+                    fontes.append(("video", videos_disponiveis[iv]))
+                    iv += 1
+                if ii < max_i:
+                    fontes.append(("imagem", imagens_disponiveis[ii]))
+                    ii += 1
 
-            if not clips_cena and imagens_disponiveis:
-                # Divide duração entre as imagens disponíveis
-                n_imgs = min(len(imagens_disponiveis), 4)
-                dur_img = duracao_cena / n_imgs
+            # Limita o número de trocas para não ficar frenético (mín. ~5s por clipe)
+            max_clipes = max(1, min(len(fontes), int(duracao_cena // 5) or 1, 6))
+            fontes = fontes[:max_clipes]
 
-                for img_path in imagens_disponiveis[:n_imgs]:
-                    clip_img = self._criar_clip_imagem(mp, img_path, dur_img)
-                    if clip_img:
-                        clips_cena.append(clip_img)
+            if fontes:
+                dur_cada = duracao_cena / len(fontes)
+                for tipo, caminho in fontes:
+                    if tipo == "video":
+                        clip = self._criar_clip_video(mp, caminho, dur_cada)
+                    else:
+                        clip = self._criar_clip_imagem(mp, caminho, dur_cada)
+                    if clip:
+                        clips_cena.append(clip)
 
             if not clips_cena:
                 # Fallback: tela preta com duração correta

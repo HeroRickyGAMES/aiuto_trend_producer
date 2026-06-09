@@ -54,10 +54,11 @@ class MediaFetcher:
                 time.sleep(2)
         return None
 
-    def _nome_arquivo_cache(self, query: str, tipo: str, idx: int) -> str:
+    def _nome_arquivo_cache(self, query: str, tipo: str, idx: int, salt: str = "") -> str:
         nome_safe = "".join(c if c.isalnum() else "_" for c in query)[:30]
         ext = "mp4" if tipo == "video" else "jpg"
-        return os.path.join(self.pasta_cache, f"{tipo}_{nome_safe}_{idx}.{ext}")
+        sufixo = f"_{salt}" if salt else ""
+        return os.path.join(self.pasta_cache, f"{tipo}_{nome_safe}_{idx}{sufixo}.{ext}")
 
     def _baixar_arquivo(self, url: str, destino: str) -> bool:
         """Baixa um arquivo de mídia."""
@@ -76,34 +77,47 @@ class MediaFetcher:
             log.error(f"Erro ao baixar {url}: {e}")
             return False
 
-    def buscar_imagens(self, query: str, quantidade: int = 3) -> List[str]:
+    def buscar_imagens(self, queries, quantidade: int = 3) -> List[str]:
         """
-        Busca imagens no Pexels e retorna lista de caminhos locais.
-        Tenta queries alternativas se a principal não tiver resultados.
+        Busca imagens no Pexels e retorna caminhos locais.
+        `queries` pode ser uma string ou uma lista de termos (keywords da cena).
+        Usa página aleatória para trazer resultados diferentes a cada execução.
         """
-        queries_tentar = [query, f"{query} science", "technology innovation", "science research"]
+        if isinstance(queries, str):
+            queries = [queries]
+        queries = [q for q in queries if q]
         arquivos = []
 
-        for q in queries_tentar:
+        for q in queries:
             if len(arquivos) >= quantidade:
                 break
 
-            log.info(f"Buscando imagens: '{q}'")
+            page = random.randint(1, 4)
+            log.info(f"Buscando imagens: '{q}' (page {page})")
             data = self._fazer_request(PEXELS_PHOTOS_URL, {
                 "query": q,
-                "per_page": quantidade + 2,
+                "per_page": quantidade + 3,
                 "orientation": "landscape",
-                "size": "large"
+                "size": "large",
+                "page": page,
             })
 
+            # Se a página aleatória veio vazia, tenta a primeira página
+            if not data or not data.get("photos"):
+                data = self._fazer_request(PEXELS_PHOTOS_URL, {
+                    "query": q, "per_page": quantidade + 3,
+                    "orientation": "landscape", "size": "large", "page": 1,
+                })
             if not data or not data.get("photos"):
                 continue
 
-            for i, foto in enumerate(data["photos"]):
+            fotos = data["photos"]
+            random.shuffle(fotos)
+            for i, foto in enumerate(fotos):
                 if len(arquivos) >= quantidade:
                     break
                 img_url = foto["src"].get("large2x") or foto["src"].get("large")
-                destino = self._nome_arquivo_cache(q, "imagem", i)
+                destino = self._nome_arquivo_cache(q, "imagem", i, salt=f"p{page}")
                 if self._baixar_arquivo(img_url, destino):
                     arquivos.append(destino)
 
@@ -112,30 +126,41 @@ class MediaFetcher:
         log.info(f"Imagens obtidas: {len(arquivos)}")
         return arquivos
 
-    def buscar_videos(self, query: str, quantidade: int = 2) -> List[str]:
+    def buscar_videos(self, queries, quantidade: int = 2) -> List[str]:
         """
-        Busca vídeos no Pexels e retorna lista de caminhos locais.
-        Prefere vídeos HD em landscape.
+        Busca vídeos no Pexels e retorna caminhos locais.
+        `queries` pode ser string ou lista. Prefere HD landscape e varia a página.
         """
-        queries_tentar = [query, f"{query} timelapse", "technology abstract", "science visualization"]
+        if isinstance(queries, str):
+            queries = [queries]
+        queries = [q for q in queries if q]
         arquivos = []
 
-        for q in queries_tentar:
+        for q in queries:
             if len(arquivos) >= quantidade:
                 break
 
-            log.info(f"Buscando videos: '{q}'")
+            page = random.randint(1, 4)
+            log.info(f"Buscando videos: '{q}' (page {page})")
             data = self._fazer_request(PEXELS_VIDEOS_URL, {
                 "query": q,
-                "per_page": quantidade + 2,
+                "per_page": quantidade + 3,
                 "orientation": "landscape",
-                "size": "large"
+                "size": "large",
+                "page": page,
             })
 
             if not data or not data.get("videos"):
+                data = self._fazer_request(PEXELS_VIDEOS_URL, {
+                    "query": q, "per_page": quantidade + 3,
+                    "orientation": "landscape", "size": "large", "page": 1,
+                })
+            if not data or not data.get("videos"):
                 continue
 
-            for i, video in enumerate(data["videos"]):
+            videos = data["videos"]
+            random.shuffle(videos)
+            for i, video in enumerate(videos):
                 if len(arquivos) >= quantidade:
                     break
 
@@ -151,7 +176,7 @@ class MediaFetcher:
                     video_url = video["video_files"][0]["link"]
 
                 if video_url:
-                    destino = self._nome_arquivo_cache(q, "video", i)
+                    destino = self._nome_arquivo_cache(q, "video", i, salt=f"p{page}")
                     if not destino.endswith(".mp4"):
                         destino = destino.replace(".jpg", ".mp4")
                     if self._baixar_arquivo(video_url, destino):
@@ -171,22 +196,16 @@ class MediaFetcher:
 
         for cena in cenas:
             log.info(f"Buscando midia para cena {cena.numero}: {cena.titulo}")
-            keywords = cena.palavras_chave_midia
+            keywords = [k for k in (cena.palavras_chave_midia or []) if k] or ["science technology"]
 
-            # Usa a primeira keyword como primária e as outras como fallback
-            query_principal = keywords[0] if keywords else "science technology"
-            query_alternativa = keywords[1] if len(keywords) > 1 else "innovation"
-
-            imagens = self.buscar_imagens(query_principal, quantidade=3)
-            if not imagens:
-                imagens = self.buscar_imagens(query_alternativa, quantidade=3)
-
-            videos = self.buscar_videos(query_principal, quantidade=1)
+            # Usa TODAS as keywords da cena como candidatas (mais variedade, sem fallback genérico fixo)
+            imagens = self.buscar_imagens(keywords, quantidade=4)
+            videos = self.buscar_videos(keywords, quantidade=2)
 
             midia_por_cena[cena.numero] = {
                 "imagens": imagens,
                 "videos": videos,
-                "query_usada": query_principal
+                "query_usada": keywords[0]
             }
 
         return midia_por_cena

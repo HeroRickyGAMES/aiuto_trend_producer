@@ -84,6 +84,63 @@ class TrendHunter:
             log.warning(f"Tradução falhou: {e}")
             return titulo, descricao
 
+    def _extrair_texto_html(self, html: str, limite: int = 3000) -> str:
+        """Remove tags/scripts e devolve o texto limpo do HTML, truncado."""
+        if not html:
+            return ""
+        html = re.sub(r"(?is)<(script|style|nav|header|footer|aside|form)[^>]*>.*?</\1>", " ", html)
+        texto = re.sub(r"(?s)<[^>]+>", " ", html)
+        texto = re.sub(r"&[a-z]+;", " ", texto)
+        texto = re.sub(r"\s+", " ", texto).strip()
+        return texto[:limite]
+
+    def _buscar_conteudo(self, url: str = "", object_id: str = "") -> str:
+        """
+        Lê o conteúdo REAL para enriquecer o roteiro:
+        - texto do artigo na URL externa;
+        - texto da postagem + principais comentários (quando vem do Hacker News).
+        Retorna string concatenada (pode ser longa) ou vazia se nada for obtido.
+        """
+        partes = []
+        headers = {"User-Agent": "Mozilla/5.0 (compatible; ia_video_creator/1.0)"}
+
+        if url and url.startswith("http"):
+            try:
+                resp = requests.get(url, headers=headers, timeout=12)
+                resp.raise_for_status()
+                ctype = resp.headers.get("content-type", "")
+                if "html" in ctype or "text" in ctype or not ctype:
+                    txt = self._extrair_texto_html(resp.text, 3500)
+                    if len(txt) > 200:
+                        partes.append(f"CONTEÚDO DO ARTIGO:\n{txt}")
+            except Exception as e:
+                log.warning(f"Falha ao ler artigo {url}: {e}")
+
+        if object_id:
+            try:
+                resp = requests.get(
+                    f"https://hn.algolia.com/api/v1/items/{object_id}", timeout=12
+                )
+                resp.raise_for_status()
+                item = resp.json()
+                story_text = self._extrair_texto_html(item.get("text") or "", 1800)
+                if story_text:
+                    partes.append(f"TEXTO DA POSTAGEM:\n{story_text}")
+                comentarios = sorted(
+                    (item.get("children") or []),
+                    key=lambda c: (c.get("points") or 0), reverse=True
+                )[:5]
+                coment_txt = [
+                    f"- {t}" for c in comentarios
+                    if (t := self._extrair_texto_html(c.get("text") or "", 400))
+                ]
+                if coment_txt:
+                    partes.append("PRINCIPAIS COMENTÁRIOS DA COMUNIDADE:\n" + "\n".join(coment_txt))
+            except Exception as e:
+                log.warning(f"Falha ao ler discussão HN {object_id}: {e}")
+
+        return "\n\n".join(partes)
+
     def buscar_google_trends(self) -> List[Trend]:
         google_cfg = self.trends_cfg.get("google_trends", {})
         if not google_cfg.get("enabled", True):
@@ -164,12 +221,19 @@ class TrendHunter:
                     if points < min_pts or not title:
                         continue
                     title_trad, _ = self._traduzir_se_ingles(title, "")
+                    url_artigo = hit.get("url", "")
+                    obj_id = str(hit.get("objectID", ""))
+                    log.info(f"Lendo conteúdo real: {title[:60]}...")
+                    conteudo = self._buscar_conteudo(url_artigo, obj_id)
+                    descricao = f"HN — {points} pontos | {query}"
+                    if conteudo:
+                        descricao = f"{descricao}\n\n{conteudo}"
                     trends.append(Trend(
                         titulo=title_trad[:100],
                         fonte="hackernews",
                         score=min(100, points / 10),
-                        descricao=f"HN — {points} pontos | {query}",
-                        url=hit.get("url", ""),
+                        descricao=descricao,
+                        url=url_artigo,
                         sugestoes_busca=[" ".join(title_trad.split()[:6])]
                     ))
                 time.sleep(1)
@@ -211,11 +275,15 @@ class TrendHunter:
                     desc = re.sub(r"<[^>]+>", "", desc_raw).strip()[:200]
                     link = (link_el.text or "") if link_el is not None else ""
                     title_trad, desc_trad = self._traduzir_se_ingles(title, desc)
+                    conteudo = self._buscar_conteudo(link) if link else ""
+                    descricao_full = desc_trad or title_trad
+                    if conteudo:
+                        descricao_full = f"{descricao_full}\n\n{conteudo}"
                     trends.append(Trend(
                         titulo=title_trad[:100],
                         fonte=f"rss/{fonte}",
                         score=max(10, 85 - i * 5),
-                        descricao=desc_trad or title_trad,
+                        descricao=descricao_full,
                         url=link,
                         sugestoes_busca=[" ".join(title_trad.split()[:6])]
                     ))

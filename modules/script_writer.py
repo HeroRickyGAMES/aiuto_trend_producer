@@ -38,12 +38,30 @@ class ScriptWriter:
         self.config = config
         self.ollama_cfg = config.get("llm", {})
         self.roteiro_cfg = config.get("roteiro", {})
+        self.script_cfg = config.get("script", {})
+        self.channel_cfg = config.get("channel", {})
         self.base_url = self.ollama_cfg.get("base_url", "http://localhost:11434")
         self.model = self.ollama_cfg.get("model", "llama3")
         self.temperature = self.ollama_cfg.get("temperature", 0.8)
-        self.duracao_min = self.roteiro_cfg.get("duracao_alvo_minutos", 5)
-        self.canal = self.roteiro_cfg.get("canal_nome", "Nosso Canal")
-        self.estilo = self.roteiro_cfg.get("estilo", "educativo e envolvente")
+        # Duração: main.py injeta em roteiro.duracao_alvo_minutos; senão script.duration_target; senão 5 min
+        self.duracao_min = (
+            self.roteiro_cfg.get("duracao_alvo_minutos")
+            or (self.script_cfg.get("duration_target", 0) / 60.0)
+            or 5
+        )
+        # Nome do canal: prefere name_tts (grafia fonética p/ o TTS ler certo), senão name
+        self.canal = (
+            self.channel_cfg.get("name_tts")
+            or self.channel_cfg.get("name")
+            or "nosso canal"
+        )
+        self.estilo = self.script_cfg.get("style") or self.roteiro_cfg.get("estilo", "educativo e envolvente")
+        # CTA de inscrição definido pelo usuário no config (evita o canal ser "alucinado" no texto)
+        self.cta = (self.channel_cfg.get("cta_subscribe") or "").strip()
+        # Tempo de geração: None = sem limite, para permitir roteiros profundos
+        self.timeout = self.ollama_cfg.get("timeout", None)
+        # Tokens generosos para roteiro aprofundado (separado do max_tokens usado em traduções)
+        self.max_tokens = self.ollama_cfg.get("script_max_tokens", 8000)
 
     def _chamar_ollama(self, prompt: str) -> str:
         """Faz chamada à API do Ollama com streaming para evitar timeout."""
@@ -53,11 +71,12 @@ class ScriptWriter:
             "messages": [{"role": "user", "content": prompt}],
             "stream": True,
             "temperature": self.temperature,
-            "max_tokens": 6000,
+            "max_tokens": self.max_tokens,
         }
-        log.info(f"Chamando Ollama ({self.model})...")
+        limite = "sem limite" if self.timeout is None else f"{self.timeout}s"
+        log.info(f"Chamando Ollama ({self.model}) — timeout: {limite}, max_tokens: {self.max_tokens}...")
         try:
-            resp = requests.post(url, json=payload, timeout=600, stream=True)
+            resp = requests.post(url, json=payload, timeout=self.timeout, stream=True)
             resp.raise_for_status()
             partes = []
             for linha in resp.iter_lines():
@@ -89,14 +108,25 @@ class ScriptWriter:
 
         niche = self.config.get("channel", {}).get("niche", "conteúdo para YouTube")
 
+        contexto_real = (contexto or "").strip() or "(sem contexto extra — use seu conhecimento, mas seja específico e evite generalidades)"
+
         return f"""Você é um roteirista especialista em vídeos de {niche} para YouTube.
 
 TEMA DO VÍDEO: {tema}
-CONTEXTO ADICIONAL: {contexto}
-CANAL: {canal_nome if (canal_nome := self.canal) else niche}
+CANAL: {self.canal}
 ESTILO: {self.estilo}
 DURAÇÃO ALVO: {self.duracao_min} minutos ({total_palavras} palavras aproximadamente)
 IDIOMA: Português brasileiro
+
+═══════════════ CONTEXTO REAL (BASE FACTUAL — LEIA COM ATENÇÃO) ═══════════════
+{contexto_real}
+═══════════════════════════════════════════════════════════════════════════════
+
+INSTRUÇÃO CRÍTICA DE PROFUNDIDADE:
+- Baseie TODO o roteiro no CONTEXTO REAL acima. Extraia e EXPLIQUE os detalhes concretos: nomes, números, como a coisa funciona por dentro, o que a torna diferente, por que isso importa.
+- PROIBIDO encher linguiça com frases vazias do tipo "é um tema fascinante", "impacta nosso dia a dia", "com o avanço da tecnologia". Cada frase deve agregar informação real.
+- Se o contexto for técnico, explique o COMO e o PORQUÊ em profundidade, traduzindo o jargão para o público sem perder a substância.
+- O espectador deve TERMINAR o vídeo entendendo o assunto de verdade — não com uma impressão superficial.
 
 Crie um roteiro COMPLETO seguindo EXATAMENTE este formato JSON:
 
@@ -133,13 +163,14 @@ Crie um roteiro COMPLETO seguindo EXATAMENTE este formato JSON:
     {{
       "numero": 5,
       "titulo": "Conclusão",
-      "naracao": "Finalizacao com call-to-action para curtir e se inscrever no canal {self.canal}.",
+      "naracao": "Conclusao que amarra o conteudo e reforca a ideia principal. NAO peca like nem inscricao aqui — isso e adicionado automaticamente depois.",
       "palavras_chave_midia": ["celebration", "thumbs up"]
     }}
   ]
 }}
 
 REGRAS IMPORTANTES:
+- PROIBIDO na naracao pedir like, pedir inscricao, mencionar 'se inscreva', 'curta o video' ou citar o nome do canal — esse encerramento e adicionado automaticamente pelo sistema. Repetir isso soa como alucinacao.
 - A naracao deve ser natural, fluida e adequada para ser lida em voz alta por um TTS
 - NUNCA coloque direções de cena, indicações de voz ou anotações técnicas na naracao
 - PROIBIDO na naracao: [Pausa], [PONTO], (voz grave), (música), [efeito], (PAUSA) ou similares
@@ -190,6 +221,10 @@ REGRAS IMPORTANTES:
                 naracao=c.get("naracao", ""),
                 palavras_chave_midia=c.get("palavras_chave_midia", [tema])
             ))
+
+        # Anexa o CTA configurado pelo usuário na última cena (controlado — nunca alucinado pelo LLM)
+        if self.cta and cenas:
+            cenas[-1].naracao = (cenas[-1].naracao.rstrip() + " " + self.cta).strip()
 
         roteiro_completo = "\n\n".join(c.naracao for c in cenas)
 
