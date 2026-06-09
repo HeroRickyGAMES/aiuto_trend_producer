@@ -29,6 +29,7 @@ from modules.media_fetcher import MediaFetcher
 from modules.video_editor import VideoEditor
 from modules.thumb_generator import ThumbGenerator
 from modules.metadata_gen import MetadataGen, Metadados
+from modules.historico import Historico
 
 logging.basicConfig(
     level=logging.INFO,
@@ -163,6 +164,7 @@ def pipeline_completo(
         limpar_temp = False
 
     os.makedirs(pasta_export, exist_ok=True)
+    historico = Historico(config)
 
     try:
         # ══════════════════════════════════════════════════
@@ -185,7 +187,7 @@ def pipeline_completo(
         else:
             niche_label = config.get("channel", {}).get("niche", "tendências")
             print(f"\n[PASSO 1/6] Buscando trends de {niche_label}...")
-            hunter = TrendHunter(config)
+            hunter = TrendHunter(config, historico)
             trend_escolhida = hunter.exibir_e_escolher()
             if not trend_escolhida:
                 log.error("Nenhuma trend selecionada. Encerrando.")
@@ -297,6 +299,10 @@ def pipeline_completo(
         arquivos_meta = meta_gen.salvar(meta, pasta_export, prefixo + f"_{ts}")
         meta_gen.exibir_resumo(meta)
 
+        # Registra no histórico para não repetir este conteúdo no futuro
+        historico.registrar(trend_escolhida, slug=os.path.basename(pasta_export),
+                             titulo_video=roteiro.titulo_video)
+
         print("\n" + "="*62)
         print("  PIPELINE CONCLUIDO COM SUCESSO!")
         print("="*62)
@@ -330,7 +336,7 @@ def pipeline_automatico(config: dict):
     Cada trend é exportada em export/<slug_do_tema>/
     """
     print("\n[AUTO] Buscando todas as trends disponíveis...")
-    hunter = TrendHunter(config)
+    hunter = TrendHunter(config, Historico(config))
     trends = hunter.buscar_todas()
 
     if not trends:

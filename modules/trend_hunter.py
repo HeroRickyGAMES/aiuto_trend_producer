@@ -44,8 +44,9 @@ class Trend:
 
 
 class TrendHunter:
-    def __init__(self, config: dict):
+    def __init__(self, config: dict, historico=None):
         self.config = config
+        self.historico = historico
         self.trends_cfg = config.get("trends", {})
         self.apis_cfg = config.get("apis", {})
         self.niche = config.get("channel", {}).get("niche", "tendências")
@@ -302,6 +303,9 @@ class TrendHunter:
                     title_trad, _ = self._traduzir_se_ingles(title, "")
                     url_artigo = hit.get("url", "")
                     obj_id = str(hit.get("objectID", ""))
+                    if self.historico and self.historico.ja_feito(url_artigo, title_trad):
+                        log.info(f"Já virou vídeo — pulando: {title[:50]}")
+                        continue
                     log.info(f"Lendo conteúdo real: {title[:60]}...")
                     conteudo = self._buscar_conteudo(url_artigo, obj_id)
                     if not conteudo:
@@ -355,6 +359,9 @@ class TrendHunter:
                     desc = re.sub(r"<[^>]+>", "", desc_raw).strip()[:200]
                     link = (link_el.text or "") if link_el is not None else ""
                     title_trad, desc_trad = self._traduzir_se_ingles(title, desc)
+                    if self.historico and self.historico.ja_feito(link, title_trad):
+                        log.info(f"Já virou vídeo — pulando: {title[:50]}")
+                        continue
                     conteudo = self._buscar_conteudo(link) if link else ""
                     # Sem artigo E sem um resumo aproveitável do feed = vídeo raso → fora da lista
                     if not conteudo and len((desc_trad or "").strip()) < 40:
@@ -383,6 +390,9 @@ class TrendHunter:
         hackernews = self.buscar_hackernews()
         rss = self.buscar_rss()
         todas = google + hackernews + rss
+        # Anti-repetição: remove trends já feitas / já existentes no canal (camada YouTube)
+        if self.historico:
+            todas = self.historico.filtrar(todas)
         todas.sort(key=lambda t: t.score, reverse=True)
         max_t = self.trends_cfg.get("max_trends", 15)
         return todas[:max_t]

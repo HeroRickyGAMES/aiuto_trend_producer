@@ -62,6 +62,12 @@ trends:
   # leitor_proxy: usa o Jina Reader (r.jina.ai) quando o site bloqueia o fetch direto (403/anti-bot).
   # true (recomendado) = recupera artigos de sites protegidos (GameSpot, UnrealEngine, etc.).
   leitor_proxy: true
+  # --- Anti-repetição de conteúdo ---
+  dedup_historico: true      # remove da lista trends que JÁ viraram vídeo (histórico local, exato por URL)
+  dedup_youtube: true        # remove trends que já existem como vídeo no seu canal (precisa de channel.youtube_url)
+  dedup_metodo: llm          # "llm" = llama compara por significado (resolve inglês×português); "tokens" = por palavras (rápido, mesmo idioma)
+  youtube_full_scan: false   # false = 15 últimos via RSS (rápido); true = catálogo completo via yt-dlp (precisa do yt-dlp instalado)
+  dedup_cache_horas: 24      # cache dos títulos do canal p/ não rebuscar a cada execução
   google_trends:
     enabled: true
     geo: BR
@@ -154,6 +160,9 @@ channel:
   # name_tts: grafia fonética para o TTS LER CERTO o nome do canal (escreva como se fala, separado).
   # Ex.: name "HeroRickyGames" → name_tts "Hero Ricky Games". Se omitido, usa o name.
   name_tts: ""
+  # youtube_url: seu canal — usado pela anti-repetição p/ comparar com vídeos já publicados.
+  # Deixe vazio para desativar a checagem contra o YouTube.
+  youtube_url: ""
   niche: "Ciência & Tecnologia"
   cta_subscribe: "Se inscreva no canal para mais conteúdos de ciência e tecnologia!"
   hashtags_base:
