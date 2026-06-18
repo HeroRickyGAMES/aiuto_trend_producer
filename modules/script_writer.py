@@ -72,6 +72,9 @@ class ScriptWriter:
             "stream": True,
             "temperature": self.temperature,
             "max_tokens": self.max_tokens,
+            # Qwen3 é "thinking": sem isto ele gasta o orçamento de tokens raciocinando
+            # (reasoning_content) e o JSON do roteiro nunca sai completo -> cai no fallback.
+            "chat_template_kwargs": {"enable_thinking": False},
         }
         limite = "sem limite" if self.timeout is None else f"{self.timeout}s"
         log.info(f"Chamando Ollama ({self.model}) — timeout: {limite}, max_tokens: {self.max_tokens}...")
@@ -193,8 +196,11 @@ REGRAS IMPORTANTES:
 
         # Tenta extrair JSON da resposta
         try:
+            # Remove eventuais blocos de raciocínio do Qwen3 que vazem no conteúdo
+            resposta_clean = re.sub(r"(?s)<think>.*?</think>", "", resposta_raw)
+
             # Remove possíveis blocos de código markdown
-            resposta_clean = re.sub(r"```json\s*|\s*```", "", resposta_raw).strip()
+            resposta_clean = re.sub(r"```json\s*|\s*```", "", resposta_clean).strip()
 
             # Corrige trailing commas (common gemma2 quirk): , followed by } or ]
             resposta_clean = re.sub(r',\s*([}\]])', r'\1', resposta_clean)
