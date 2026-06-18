@@ -11,7 +11,7 @@ llm:
   temperature: 0.5                  # menor = mais fiel ao artigo e menos alucinação (0.4-0.5 p/ roteiro factual)
   max_tokens: 2000                  # usado em tarefas curtas (ex: tradução)
   timeout: null                     # null = SEM limite de tempo: deixa a IA aprofundar o roteiro à vontade
-  script_max_tokens: 3000           # right-size: profundo p/ até ~10 min, sem dar corda p/ divagar no fim
+  script_max_tokens: 6000           # roteiro profundo: thinking desligado, então todo token vira JSON/narração
 
 # --- TTS ---
 tts:
